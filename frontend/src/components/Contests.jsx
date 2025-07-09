@@ -137,7 +137,7 @@ const Contests = () => {
                 
                 <div className="mt-4">
                   {contest.status === 'upcoming' ? (
-                    <button className="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 transition-colors">
+                    <button className="w-full bg-black text-white py-2 px-4 rounded-md hover:bg-indigo-700 transition-colors">
                       Register
                     </button>
                   ) : (

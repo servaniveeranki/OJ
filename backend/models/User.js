@@ -26,6 +26,31 @@ const UserSchema = new mongoose.Schema({
         type: String,
         default: null
     },
+    // Problem solving statistics
+    solvedProblems: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Problem'
+    }],
+    problemsSolved: {
+        type: Number,
+        default: 0
+    },
+    totalSubmissions: {
+        type: Number,
+        default: 0
+    },
+    submissionStats: {
+        accepted: { type: Number, default: 0 },
+        wrongAnswer: { type: Number, default: 0 },
+        timeLimitExceeded: { type: Number, default: 0 },
+        runtimeError: { type: Number, default: 0 },
+        compilationError: { type: Number, default: 0 }
+    },
+    streak: {
+        current: { type: Number, default: 0 },
+        longest: { type: Number, default: 0 },
+        lastSubmissionDate: { type: Date }
+    },
     createdAt: {
         type: Date,
         default: Date.now

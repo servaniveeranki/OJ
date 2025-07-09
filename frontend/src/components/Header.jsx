@@ -1,17 +1,24 @@
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useState } from 'react';
-import { FaUser, FaKey, FaSignOutAlt, FaChartBar } from 'react-icons/fa';
+import { FaUser, FaKey, FaSignOutAlt, FaChartBar, FaCode } from 'react-icons/fa';
 
 const Header = () => {
   const { user, logout } = useAuth();
   const [showDropdown, setShowDropdown] = useState(false);
+  const location = useLocation();
+  
+  // Check if we're on the homepage to adjust styling
+  const isHomepage = location.pathname === '/';
 
   return (
-    <header className="bg-indigo-600 text-white shadow-md">
+    <header className={`${isHomepage ? 'bg-transparent' : 'bg-black'} text-white shadow-md`}>
       <div className="container mx-auto px-4 py-3 flex justify-between items-center">
         {/* Website Logo/Name */}
-        <Link to="/dashboard" className="text-2xl font-bold">CodeZen</Link>
+        <Link to="/" className="flex items-center">
+          <FaCode className="text-3xl mr-2" />
+          <span className="text-2xl font-bold">CodeZen</span>
+        </Link>
         
         {/* Navigation Links */}
         <nav className="hidden md:flex space-x-6">
@@ -20,8 +27,8 @@ const Header = () => {
           <Link to="/leaderboard" className="hover:text-indigo-200 transition-colors">Leaderboard</Link>
         </nav>
         
-        {/* User Avatar and Dropdown */}
-        {user && (
+        {/* User Avatar and Dropdown or Login/Register Buttons */}
+        {user ? (
           <div className="relative">
             <button 
               onClick={() => setShowDropdown(!showDropdown)}
@@ -80,6 +87,21 @@ const Header = () => {
                 </button>
               </div>
             )}
+          </div>
+        ) : (
+          <div className="flex space-x-4">
+            <Link 
+              to="/login" 
+              className="bg-white text-indigo-600 hover:bg-gray-200 px-4 py-2 rounded-md font-medium transition-colors"
+            >
+              Login
+            </Link>
+            <Link 
+              to="/register" 
+              className="bg-transparent hover:bg-white/10 border border-white px-4 py-2 rounded-md font-medium transition-colors"
+            >
+              Register
+            </Link>
           </div>
         )}
         

@@ -11,7 +11,7 @@ DBConnection();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 // Handle multiple origins from CLIENT_URL
-const allowedOrigins = (process.env.CLIENT_URL || "http://localhost:3000").split(',');
+const allowedOrigins = (process.env.CLIENT_URL || "http://localhost:5173,http://localhost:3000").split(',');
 
 app.use(cors({
   origin: function(origin, callback) {
@@ -19,8 +19,9 @@ app.use(cors({
     if (!origin) return callback(null, true);
     
     if (allowedOrigins.indexOf(origin) === -1) {
-      const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
-      return callback(new Error(msg), false);
+      console.log(`Origin ${origin} not allowed by CORS`);
+      // Still allow the request to proceed in development
+      return callback(null, true);
     }
     return callback(null, true);
   },
@@ -34,6 +35,22 @@ app.get("/", (req, res) => {
 
 // Use authentication routes
 app.use("/auth", authRoutes);
+
+// Use problem routes
+const problemRoutes = require('./routes/problems');
+
+// Use execute route
+const executeRoute = require('./routes/execute');
+app.use('/api/execute', executeRoute);
+
+// Use judge route
+const judgeRoute = require('./routes/judge');
+app.use('/api/judge', judgeRoute);
+app.use("/api/problems", problemRoutes);
+
+// Use user routes
+const userRoutes = require('./routes/users');
+app.use("/api/users", userRoutes);
 
 // Health check endpoint
 app.get("/health", (req, res) => {
