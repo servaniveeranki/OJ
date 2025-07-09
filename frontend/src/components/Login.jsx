@@ -55,7 +55,7 @@ const Login = () => {
     if (validateForm()) {
       const result = await login(formData);
       if (result.success) {
-        navigate('/dashboard');
+        navigate('/');
       }
     }
   };

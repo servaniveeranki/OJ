@@ -156,7 +156,7 @@ const Profile = () => {
           <div className="bg-white rounded-xl shadow-lg overflow-hidden">
             <div className="md:flex">
               {/* Sidebar */}
-              <div className="md:w-1/3 bg-indigo-600 p-6 text-white">
+              <div className="md:w-1/3 bg-black/90 p-6 text-white">
                 <div className="flex flex-col items-center mb-8">
                   <div className="h-24 w-24 rounded-full bg-white flex items-center justify-center text-3xl font-bold text-indigo-600 mb-4 overflow-hidden">
                     {user.profilePicture ? (
@@ -176,14 +176,14 @@ const Profile = () => {
                 <nav className="mt-8 space-y-2">
                   <button 
                     onClick={() => setActiveTab('profile')} 
-                    className={`flex items-center w-full px-4 py-3 rounded-lg transition-colors ${activeTab === 'profile' ? 'bg-white text-indigo-600' : 'hover:bg-indigo-700 text-white'}`}
+                    className={`flex items-center w-full px-4 py-3 rounded-lg transition-colors ${activeTab === 'profile' ? 'bg-white text-black' : 'hover:bg-indigo-700 text-white'}`}
                   >
                     <FaUser className="mr-3" />
                     Profile Information
                   </button>
                   <button 
                     onClick={() => setActiveTab('security')} 
-                    className={`flex items-center w-full px-4 py-3 rounded-lg transition-colors ${activeTab === 'security' ? 'bg-white text-indigo-600' : 'hover:bg-indigo-700 text-white'}`}
+                    className={`flex items-center w-full px-4 py-3 rounded-lg transition-colors ${activeTab === 'security' ? 'bg-white text-black' : 'hover:bg-indigo-700 text-white'}`}
                   >
                     <FaKey className="mr-3" />
                     Security Settings
@@ -211,7 +211,7 @@ const Profile = () => {
               </div>
               
               {/* Main Content */}
-              <div className="md:w-2/3 p-6">
+              <div className="md:w-2/3 bg-black/40 p-6">
                 {successMessage && (
                   <div className="mb-4 bg-green-50 border-l-4 border-green-500 p-4 rounded">
                     <div className="flex items-center">
@@ -310,25 +310,25 @@ const Profile = () => {
                     ) : (
                       <div className="space-y-6">
                         <div className="flex items-center">
-                          <FaUser className="text-gray-400 mr-3" />
+                          <FaUser className="text-black-500 mr-3" />
                           <div>
-                            <p className="text-sm text-gray-500">Full Name</p>
+                            <p className="text-sm text-black-500">Full Name</p>
                             <p className="font-medium">{user.firstname} {user.lastname}</p>
                           </div>
                         </div>
                         
                         <div className="flex items-center">
-                          <FaEnvelope className="text-gray-400 mr-3" />
+                          <FaEnvelope className="text-black-500 mr-3" />
                           <div>
-                            <p className="text-sm text-gray-500">Email Address</p>
+                            <p className="text-sm text-black-500">Email Address</p>
                             <p className="font-medium">{user.email}</p>
                           </div>
                         </div>
                         
                         <div className="flex items-center">
-                          <FaCalendarAlt className="text-gray-400 mr-3" />
+                          <FaCalendarAlt className="text-black-500 mr-3" />
                           <div>
-                            <p className="text-sm text-gray-500">Member Since</p>
+                            <p className="text-sm text-black-500">Member Since</p>
                             <p className="font-medium">{new Date(user.createdAt).toLocaleDateString()}</p>
                           </div>
                         </div>

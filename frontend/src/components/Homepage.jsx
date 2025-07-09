@@ -2,19 +2,19 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { FaCode, FaTrophy, FaChartBar, FaUserAlt, FaSignInAlt, FaUserPlus } from 'react-icons/fa';
 import { useAuth } from '../context/AuthContext';
+import Header from './Header';
 
 const Homepage = () => {
   const { user } = useAuth();
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 to-black text-white">
+      {/* Header with Avatar */}
+      <Header />
+      
       {/* Hero Section */}
       <div className="container mx-auto px-4 py-16">
         <div className="flex flex-col items-center justify-center text-center">
-          <div className="mb-8 flex items-center">
-            <FaCode className="text-5xl mr-3" />
-            <h1 className="text-5xl font-bold">CodeZen</h1>
-          </div>
           <h2 className="text-2xl md:text-3xl font-light mb-6 max-w-3xl">
             Master coding challenges, compete in contests, and climb the ranks in our coding community
           </h2>
@@ -95,7 +95,7 @@ const Homepage = () => {
             </div>
             <h3 className="text-xl font-bold text-center mb-4">Leaderboard</h3>
             <p className="text-center mb-6 text-white/80">
-              See how you rank against other coders and track your progress over time.
+              See how you rank against other coders and track your progress over time consistently.
             </p>
             <div className="flex justify-center">
               <Link 
