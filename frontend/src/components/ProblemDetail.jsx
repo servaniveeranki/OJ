@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useContext, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Header from './Header';
@@ -29,7 +30,7 @@ const ProblemDetail = () => {
   const [customInput, setCustomInput] = useState('');
   const [customOutput, setCustomOutput] = useState(null);
   const [runningCustom, setRunningCustom] = useState(false);
-  const [activeTab, setActiveTab] = useState('testcases'); // 'testcases' or 'custom'
+  const [activeTab, setActiveTab] = useState('testcases');
   const [activeTestCase, setActiveTestCase] = useState(0);
   const [consoleOutput, setConsoleOutput] = useState('');
   const [isConsoleOpen, setIsConsoleOpen] = useState(false);
@@ -182,7 +183,7 @@ const ProblemDetail = () => {
       } else if (response.data.status === 'Runtime Error') {
         toast.error('❌ Runtime error in your solution!');
       } else {
-        toast.warning('⚠️ Solution not accepted. Some test cases failed.');
+        toast.warning('⚠ Solution not accepted. Some test cases failed.');
       }
     } catch (err) {
       setError('Failed to submit solution');
@@ -198,93 +199,60 @@ const ProblemDetail = () => {
     setResult(null);
     setConsoleOutput('');
     setIsConsoleOpen(true);
-    
-    // Only run against visible test cases
+  
     const visibleTestCases = problem.testCases.filter(tc => !tc.isHidden);
+    const problemID = problem._id;
     let passedCount = 0;
-    
+  
     try {
       const startTime = Date.now();
-      const results = [];
-      
-      // Run each test case sequentially
-      for (let i = 0; i < visibleTestCases.length; i++) {
-        const testCase = visibleTestCases[i];
-        setActiveTestCase(i);
-        
-        try {
-          const response = await axios.post(`/api/problems/run-test`, {
-            code,
-            language,
-            input: testCase.input,
-            expectedOutput: testCase.output
-          });
-          console.log("response.data", response.data);
-          
-          const result = {
-            ...response.data,
-            testCase: i + 1,
-            input: testCase.input,
-            expectedOutput: testCase.output
-          };
-          
-          if (response.data.status === 'Accepted') {
-            passedCount++;
-          }
-          
-          results.push(result);
-          
-          // Update console with test case result
-          setConsoleOutput(prev => 
-            `${prev}\nTest Case ${i + 1}: ${response.data.status}\n` +
-            `Input: ${testCase.input}\n` +
-            `Expected: ${testCase.output}\n` +
-            `Got: ${response.data.actualOutput || 'N/A'}\n` +
-            `${response.data.error ? `Error: ${response.data.error}\n` : ''}`
-          );
-          
-        } catch (err) {
-          console.error(`Error running test case ${i + 1}:`, err);
-          results.push({
-            status: 'Runtime Error',
-            testCase: i + 1,
-            error: err.response?.data?.message || 'Unknown error',
-            input: testCase.input,
-            expectedOutput: testCase.output
-          });
-          
-          setConsoleOutput(prev => 
-            `${prev}\nTest Case ${i + 1}: Runtime Error\n` +
-            `Error: ${err.response?.data?.message || 'Unknown error'}\n`
-          );
+  
+      const response = await axios.post(`/api/problems/run-test`, {
+        code,
+        language,
+        problem: {
+          ...problem,
+          testCases: visibleTestCases // Only send visible test cases
         }
-      }
-      
+      });
+  
+      const testResults = response.data.results || [];
+  
+      const consoleLines = testResults.map((result, index) => {
+        if (result.passed) passedCount++;
+  
+        return `Test Case ${index + 1}: ${result.passed ? 'Accepted' : 'Wrong Answer'}
+  Input: ${result.input}
+  Expected: ${result.expected}
+  Got: ${result.output || 'N/A'}
+  ${result.error ? `Error: ${result.error}` : ''}`;
+      });
+  
+      setConsoleOutput(consoleLines.join('\n\n'));
+  
       const executionTime = Date.now() - startTime;
-      
-      // Update execution stats
+  
       setExecutionStats({
         time: executionTime,
-        memory: Math.floor(Math.random() * 10000), // Mock memory usage
+        memory: Math.floor(Math.random() * 10000), // simulate memory
         passed: passedCount,
         total: visibleTestCases.length
       });
-      
-      // Set final result
+  
       const finalStatus = passedCount === visibleTestCases.length ? 'Accepted' : 'Wrong Answer';
+  
       setResult({
         status: finalStatus,
-        testResults: results,
+        testResults,
         executionTime
       });
-      
-      // Show appropriate toast
+  
       if (finalStatus === 'Accepted') {
         toast.success(`✅ All ${passedCount} test cases passed!`);
       } else {
-        toast.warning(`⚠️ ${passedCount}/${visibleTestCases.length} test cases passed.`);
+        toast.warning(`⚠ ${passedCount}/${visibleTestCases.length} test cases passed.`);
       }
-      
+  
     } catch (err) {
       setError('Failed to run code');
       toast.error('Failed to run code: ' + (err.response?.data?.message || err.message));
@@ -293,11 +261,14 @@ const ProblemDetail = () => {
       setRunning(false);
     }
   };
+  
 
-  const handleRunCustomInput = async () => {
-    setRunningCustom(true);
-    setCustomOutput(null);
-    toast.info('🔄 Running code with custom input...');
+
+const handleRunCustomInput = async () => {
+  setRunningCustom(true);
+  setCustomOutput(null);
+  toast.info('🔄 Running code with custom input...');
+
 
     try {
       const response = await axios.post('/api/problems/run-custom', {
