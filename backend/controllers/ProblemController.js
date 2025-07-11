@@ -49,28 +49,31 @@ async function submitCode(req, res) {
     res.status(500).json({ error: err.message });
   }
 }
+
+
 async function runTest(req, res) {
-    const { code, input, language } = req.body;
-  
-    if (!code || !input || !language) {
-      return res.status(400).json({ error: 'Missing code, input, or language' });
-    }
-  
-    try {
-      // This route runs one custom test case (not tied to a problem)
-      const testCase = {
-        input: input,
-        output: '', // No output to match, just return actual output
-      };
-  
-      const problem = { testCases: [testCase] }; // Wrap into fake "problem" for reuse
-  
-      const results = await executeUserCode({ problem, code, language });
-      res.json({ result: results[0] }); // return only the first test result
-    } catch (err) {
-      res.status(500).json({ error: err.message });
-    }
+  const { code, language, problem } = req.body;
+
+  if (!code || !language || !problem || !problem.testCases) {
+    return res.status(400).json({ error: 'Missing code, language, or problem with testCases' });
   }
+
+  try {
+    const results = await executeUserCode({
+      problem,
+      code,
+      language,
+      testCases: problem.testCases
+    });
+
+    res.json({ results }); // ✅ Send all results properly structured
+  } catch (err) {
+    console.error('Error executing test:', err);
+    res.status(500).json({ error: err.message });
+  }
+}
+
+
 
 module.exports = {
   createProblem,

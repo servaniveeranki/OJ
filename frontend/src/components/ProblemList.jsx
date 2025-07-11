@@ -21,6 +21,7 @@ const ProblemList = () => {
       try {
         setLoading(true);
         const response = await axios.get('/api/problems');
+        console.log("RESPONSE:",response);
         setProblems(response.data);
         
         // Extract unique categories for filtering
