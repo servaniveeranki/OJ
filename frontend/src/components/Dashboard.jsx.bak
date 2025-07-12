@@ -1,0 +1,955 @@
+import { useState, useEffect } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { FaCode, FaTrophy, FaChartBar, FaUser, FaSignOutAlt, FaCalendarAlt, FaCheck, FaJava, FaPython, FaJs, FaDatabase, FaEye, FaTerminal, FaUsers, FaHome, FaCog, FaList, FaChevronDown } from 'react-icons/fa';
+import { SiCplusplus, SiCsharp, SiRuby, SiPhp, SiGo } from 'react-icons/si';
+import axios from '../api/axios';
+import { toast } from 'react-toastify';
+import './Dashboard.css'; // Calendar styling
+import './codezen.css'; // New professional styling
+
+const Dashboard = () => {
+  const { user, loading, logout } = useAuth();
+  const navigate = useNavigate();
+  const [successMessage, setSuccessMessage] = useState('');
+  const [statsLoading, setStatsLoading] = useState(true);
+  const [recentSubmissions, setRecentSubmissions] = useState([]);
+  const [selectedSubmission, setSelectedSubmission] = useState(null);
+  const [showSolutionModal, setShowSolutionModal] = useState(false);
+  
+  // State for user statistics
+  const [problemStats, setProblemStats] = useState({
+    totalProblems: 0,
+    solvedProblems: 0,
+    easyProblems: { total: 0, solved: 0 },
+    mediumProblems: { total: 0, solved: 0 },
+    hardProblems: { total: 0, solved: 0 },
+    languages: [],
+    streakDays: 0,
+    longestStreak: 0,
+    totalSubmissions: 0,
+    acceptedSubmissions: 0,
+    submissionTrend: [], // Track submission trend over time
+    weeklySubmissions: 0, // Track submissions in the last 7 days
+  });
+  
+  // State for activity calendar data
+  const [activityData, setActivityData] = useState({});
+  
+  // State for language distribution
+  const [languageDistribution, setLanguageDistribution] = useState({
+    cpp: 0,
+    python: 0,
+    java: 0,
+    javascript: 0,
+    other: 0
+  });
+  
+  useEffect(() => {
+    if (!loading && !user) {
+      navigate('/login');
+    }
+  }, [user, loading, navigate]);
+  
+  // Fetch user statistics and submissions
+  useEffect(() => {
+    const fetchUserData = async () => {
+      if (!user || !user._id) return;
+      
+      setStatsLoading(true);
+      try {
+        // Fetch user statistics
+        const statsResponse = await axios.get(`/api/users/stats/${user._id}`);
+        const statsData = statsResponse.data;
+        
+        // Fetch recent submissions
+        const submissionsResponse = await axios.get(`/api/users/submissions/${user._id}`);
+        const submissions = submissionsResponse.data;
+        setRecentSubmissions(submissions);
+        
+        // Get total problems count
+        const problemsResponse = await axios.get('/api/problems');
+        const totalProblems = problemsResponse.data.length;
+        
+        // Map language codes to icons
+        const languageIcons = {
+          'javascript': FaJs,
+          'js': FaJs,
+          'python': FaPython,
+          'py': FaPython,
+          'java': FaJava,
+          'cpp': SiCplusplus,
+          'c++': SiCplusplus,
+          'csharp': SiCsharp,
+          'c#': SiCsharp,
+          'ruby': SiRuby,
+          'php': SiPhp,
+          'go': SiGo,
+          'sql': FaDatabase
+        };
+        
+        // Format language distribution data
+        const languageDistribution = statsData.languageDistribution.map(lang => ({
+          name: lang.language.charAt(0).toUpperCase() + lang.language.slice(1),
+          count: lang.count,
+          icon: languageIcons[lang.language.toLowerCase()] || FaCode
+        }));
+        
+        // Process language distribution for specific languages
+        const langDistribution = {
+          cpp: 0,
+          python: 0,
+          java: 0,
+          javascript: 0,
+          other: 0
+        };
+        
+        statsData.languageDistribution.forEach(lang => {
+          const language = lang.language.toLowerCase();
+          if (language === 'cpp' || language === 'c++') {
+            langDistribution.cpp += lang.count;
+          } else if (language === 'python' || language === 'py') {
+            langDistribution.python += lang.count;
+          } else if (language === 'java') {
+            langDistribution.java += lang.count;
+          } else if (language === 'javascript' || language === 'js') {
+            langDistribution.javascript += lang.count;
+          } else {
+            langDistribution.other += lang.count;
+          }
+        });
+        
+        setLanguageDistribution(langDistribution);
+        
+        // Calculate weekly submissions (last 7 days)
+        const today = new Date();
+        const oneWeekAgo = new Date(today);
+        oneWeekAgo.setDate(today.getDate() - 7);
+        
+        let weeklySubmissions = 0;
+        const submissionTrend = [];
+        
+        // Process last 30 days for trend
+        for (let i = 29; i >= 0; i--) {
+          const date = new Date(today);
+          date.setDate(today.getDate() - i);
+          const dateString = date.toISOString().split('T')[0];
+          const dayData = statsData.dailyActivity?.[dateString] || { submissions: 0, accepted: 0 };
+          
+          submissionTrend.push({
+            date: dateString,
+            submissions: dayData.submissions || 0,
+            accepted: dayData.accepted || 0
+          });
+          
+          // Count submissions in the last 7 days
+          if (i < 7) {
+            weeklySubmissions += dayData.submissions || 0;
+          }
+        }
+        
+        // Update problem stats
+        setProblemStats({
+          totalProblems,
+          solvedProblems: statsData.problemsSolved,
+          easyProblems: { 
+            total: Math.round(totalProblems * 0.4), // Estimate
+            solved: statsData.difficultyDistribution.Easy || 0
+          },
+          mediumProblems: { 
+            total: Math.round(totalProblems * 0.4), // Estimate
+            solved: statsData.difficultyDistribution.Medium || 0
+          },
+          hardProblems: { 
+            total: Math.round(totalProblems * 0.2), // Estimate
+            solved: statsData.difficultyDistribution.Hard || 0
+          },
+          languages: languageDistribution,
+          streakDays: statsData.streak?.current || 0,
+          longestStreak: statsData.streak?.longest || 0,
+          totalSubmissions: statsData.totalSubmissions,
+          acceptedSubmissions: statsData.submissionStats?.accepted || 0,
+          submissionTrend: submissionTrend,
+          weeklySubmissions: weeklySubmissions
+        });
+        
+        // Format activity data for the calendar
+        if (statsData.dailyActivity) {
+          setActivityData(statsData.dailyActivity);
+        }
+        
+      } catch (error) {
+        console.error('Error fetching user data:', error);
+        toast.error('Failed to load your statistics');
+      } finally {
+        setStatsLoading(false);
+      }
+    };
+    
+    fetchUserData();
+  }, [user]);
+  
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-screen bg-gray-50">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
+      </div>
+    );
+  }
+  
+  if (!user) {
+    return null; // Will redirect in useEffect
+  }
+  
+  const [isScrolled, setIsScrolled] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      if (window.scrollY > 50) {
+        setIsScrolled(true);
+      } else {
+        setIsScrolled(false);
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black text-white">
+      {/* Navigation */}
+      <nav className={`fixed w-full z-50 transition-all duration-300 ${isScrolled ? 'bg-black/80 backdrop-blur-md py-2 shadow-lg' : 'bg-transparent py-4'}`}>
+        <div className="container mx-auto px-4 flex justify-between items-center">
+          <div className="flex items-center">
+            <FaCode className="text-3xl text-blue-500 mr-2" />
+        </div>
+        <div className="hidden md:flex items-center space-x-8">
+          <Link to="/" className="hover:text-blue-400 transition-colors nav-link"><FaHome className="inline mr-1" /> Home</Link>
+          <Link to="/problems" className="hover:text-blue-400 transition-colors nav-link"><FaList className="inline mr-1" /> Problems</Link>
+          <Link to="/contests" className="hover:text-blue-400 transition-colors nav-link"><FaTrophy className="inline mr-1" /> Contests</Link>
+          <Link to="/leaderboard" className="hover:text-blue-400 transition-colors nav-link"><FaChartBar className="inline mr-1" /> Leaderboard</Link>
+        </div>
+        <div className="flex items-center space-x-4">
+          <Link to="/profile" className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center">
+            <FaUser className="mr-1" /> Profile
+          </Link>
+          <button 
+            onClick={handleLogout}
+            className="hover:text-blue-400 transition-colors flex items-center"
+          >
+            <FaSignOutAlt className="mr-1" /> Logout
+          </button>
+        </div>
+      </div>
+    </nav>
+    
+    <div className="container mx-auto px-4 py-8">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
+        <div>
+          <h1 className="text-3xl font-bold mb-2">Dashboard</h1>
+          <p className="text-gray-400">Welcome back, {user?.username || 'Coder'}!</p>
+        </div>
+        <div className="mt-4 md:mt-0 flex space-x-4">
+          <Link to="/problems" className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors inline-flex items-center">
+            <FaCode className="mr-2" /> Solve Problems
+          </Link>
+          <button 
+            onClick={logout} 
+            className="bg-transparent border border-gray-600 hover:border-gray-400 text-gray-400 hover:text-white px-4 py-2 rounded-lg transition-colors inline-flex items-center"
+          >
+            <FaSignOutAlt className="mr-2" /> Logout
+          </button>
+        </div>
+      </div>
+      
+      {/* Summary Statistics Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        {/* Total Problems Solved */}
+        <div className="bg-gradient-to-br from-blue-900/40 to-blue-700/20 p-6 rounded-xl shadow-lg">
+          <div className="flex justify-between items-start">
+            <div>
+              <p className="text-gray-400 text-sm mb-1">Problems Solved</p>
+              <h3 className="text-3xl font-bold">{problemStats.solvedProblems}</h3>
+              <p className="text-sm text-gray-400 mt-1">
+                {problemStats.totalProblems > 0 ? 
+                  `${Math.round((problemStats.solvedProblems / problemStats.totalProblems) * 100)}% of total` : 
+                  'Start solving!'}
+              </p>
+            </div>
+            <div className="bg-blue-500/20 p-3 rounded-lg">
+              <FaTrophy className="text-blue-400 text-2xl" />
+            </div>
+          </div>
+          <div className="mt-4 w-full bg-gray-700/50 rounded-full h-1.5">
+            <div 
+              className="bg-blue-500 h-1.5 rounded-full" 
+              style={{ width: `${(problemStats.solvedProblems / Math.max(problemStats.totalProblems, 1)) * 100}%` }}
+            ></div>
+          </div>
+        </div>
+        
+        {/* Weekly Activity */}
+        <div className="bg-gradient-to-br from-green-900/40 to-green-700/20 p-6 rounded-xl shadow-lg">
+          <div className="flex justify-between items-start">
+            <div>
+              <p className="text-gray-400 text-sm mb-1">Weekly Submissions</p>
+              <h3 className="text-3xl font-bold">{problemStats.weeklySubmissions}</h3>
+              <p className="text-sm text-gray-400 mt-1">
+                {problemStats.acceptedSubmissions > 0 ? 
+                  `${Math.round((problemStats.acceptedSubmissions / Math.max(problemStats.totalSubmissions, 1)) * 100)}% acceptance rate` : 
+                  'No submissions yet'}
+              </p>
+            </div>
+            <div className="bg-green-500/20 p-3 rounded-lg">
+              <FaChartBar className="text-green-400 text-2xl" />
+            </div>
+          </div>
+          <div className="mt-4 w-full bg-gray-700/50 rounded-full h-1.5">
+            <div 
+              className="bg-green-500 h-1.5 rounded-full" 
+              style={{ width: `${Math.min((problemStats.weeklySubmissions / 14) * 100, 100)}%` }}
+            ></div>
+          </div>
+        </div>
+        
+        {/* Current Streak */}
+        <div className="bg-gradient-to-br from-yellow-900/40 to-yellow-700/20 p-6 rounded-xl shadow-lg">
+          <div className="flex justify-between items-start">
+            <div>
+              <p className="text-gray-400 text-sm mb-1">Current Streak</p>
+              <h3 className="text-3xl font-bold">{problemStats.streakDays} days</h3>
+              <p className="text-sm text-gray-400 mt-1">
+                Longest: {problemStats.longestStreak} days
+              </p>
+            </div>
+            <div className="bg-yellow-500/20 p-3 rounded-lg">
+              <FaCalendarAlt className="text-yellow-400 text-2xl" />
+            </div>
+          </div>
+          <div className="mt-4 w-full bg-gray-700/50 rounded-full h-1.5">
+            <div 
+              className="bg-yellow-500 h-1.5 rounded-full" 
+              style={{ width: `${Math.min((problemStats.streakDays / Math.max(problemStats.longestStreak, 7)) * 100, 100)}%` }}
+            ></div>
+          </div>
+        </div>
+        
+        {/* Acceptance Rate */}
+        <div className="bg-gradient-to-br from-purple-900/40 to-purple-700/20 p-6 rounded-xl shadow-lg">
+          <div className="flex justify-between items-start">
+            <div>
+              <p className="text-gray-400 text-sm mb-1">Acceptance Rate</p>
+              <h3 className="text-3xl font-bold">
+                {problemStats.totalSubmissions > 0 ? 
+                  `${Math.round((problemStats.acceptedSubmissions / problemStats.totalSubmissions) * 100)}%` : 
+                  '0%'}
+              </h3>
+              <p className="text-sm text-gray-400 mt-1">
+                {problemStats.acceptedSubmissions} / {problemStats.totalSubmissions} submissions
+              </p>
+            </div>
+            <div className="bg-purple-500/20 p-3 rounded-lg">
+              <FaCheck className="text-purple-400 text-2xl" />
+            </div>
+          </div>
+          <div className="mt-4 w-full bg-gray-700/50 rounded-full h-1.5">
+            <div 
+              className="bg-purple-500 h-1.5 rounded-full" 
+              style={{ width: `${(problemStats.acceptedSubmissions / Math.max(problemStats.totalSubmissions, 1)) * 100}%` }}
+            ></div>
+          </div>
+        </div>
+      </div>
+      
+      {successMessage && (
+        <div className="mb-6 bg-green-600/20 border-l-4 border-green-500 p-4 rounded glass">
+          <p className="text-green-400">{successMessage}</p>
+        </div>
+      )}
+      
+      {/* Welcome Section */}
+      <div className="mb-10">
+            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-blue-700 to-black/90 p-8 shadow-xl glass border-glow">
+              <div className="absolute top-0 right-0 -mt-20 -mr-20 h-40 w-40 rounded-full bg-blue-500/20 blur-3xl"></div>
+              <div className="absolute bottom-0 left-0 -mb-20 -ml-20 h-40 w-40 rounded-full bg-black90/90 blur-3xl"></div>
+              
+              <div className="relative flex flex-col md:flex-row justify-between items-center">
+                <div>
+                  <h1 className="text-4xl font-bold mb-2">Welcome back, <span className="text-black/70">{user?.firstname}</span>!</h1>
+                  <p className="text-xl text-gray-500 mb-4">Your coding journey continues here. Let's track your progress.</p>
+                  
+                  <div className="flex items-center space-x-4 mt-4">
+                    <Link to="/problems" className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-all transform hover:scale-105 shadow-lg flex items-center">
+                      <FaCode className="mr-2" /> Solve Problems
+                    </Link>
+                    <Link to="/contests" className="bg-transparent hover:bg-white/10 border border-white/20 text-white px-6 py-2 rounded-lg transition-all transform hover:scale-105 shadow-lg flex items-center">
+                      <FaTrophy className="mr-2" /> Join Contest
+                    </Link>
+                  </div>
+                </div>
+                
+                <div className="mt-6 md:mt-0 flex items-center bg-white/10 backdrop-blur-sm p-4 rounded-xl border border-white/10">
+                  <div className="text-center px-6">
+                    <div className="text-4xl font-bold text-blue-400">{problemStats.streakDays}</div>
+                    <div className="text-sm text-gray-300">Day Streak</div>
+                  </div>
+                  <div className="h-12 w-px bg-gray-700"></div>
+                  <div className="text-center px-6">
+                    <div className="text-4xl font-bold text-blue-400">{problemStats.solvedProblems}</div>
+                    <div className="text-sm text-gray-300">Problems Solved</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          {/* Stats Overview */}
+          <div className="mb-12">
+            <h2 className="text-2xl md:text-3xl font-bold mb-6">Your <span className="text-blue-500">Progress</span></h2>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+              {/* Total Problems Solved */}
+              <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-6 shadow-lg border border-gray-700 card-hover">
+                <div className="h-12 w-12 bg-blue-600/20 text-blue-500 rounded-lg flex items-center justify-center mb-4">
+                  <FaCode className="text-2xl" />
+                </div>
+                <div className="text-3xl font-bold mb-2">{problemStats.solvedProblems}</div>
+                <div className="text-sm text-gray-400 mb-3">Problems Solved</div>
+                <div className="w-full bg-gray-700/50 rounded-full h-2.5 stat-bar" style={{"--percent": `${(problemStats.solvedProblems / problemStats.totalProblems) * 100}%`}}>
+                </div>
+                <div className="text-xs text-gray-500 mt-2">
+                  {Math.round((problemStats.solvedProblems / problemStats.totalProblems) * 100)}% of {problemStats.totalProblems} problems
+                </div>
+              </div>
+              
+              {/* Current Streak */}
+              <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-6 shadow-lg border border-gray-700 card-hover">
+                <div className="h-12 w-12 bg-purple-600/20 text-purple-500 rounded-lg flex items-center justify-center mb-4">
+                  <FaCalendarAlt className="text-2xl" />
+                </div>
+                <div className="text-3xl font-bold mb-2">{problemStats.streakDays}</div>
+                <div className="text-sm text-gray-400 mb-3">Day Streak</div>
+                <div className="flex items-center">
+                  <div className="flex-1 h-1 bg-gray-700">
+                    <div className="h-1 bg-purple-500" style={{ width: `${(problemStats.streakDays / Math.max(problemStats.longestStreak, 1)) * 100}%` }}></div>
+                  </div>
+                  <div className="text-xs text-gray-500 ml-2">
+                    Best: {problemStats.longestStreak} days
+                  </div>
+                </div>
+              </div>
+              
+              {/* Acceptance Rate */}
+              <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-6 shadow-lg border border-gray-700 card-hover">
+                <div className="h-12 w-12 bg-green-600/20 text-green-500 rounded-lg flex items-center justify-center mb-4">
+                  <FaCheck className="text-2xl" />
+                </div>
+                <div className="text-3xl font-bold mb-2">
+                  {problemStats.totalSubmissions ? Math.round((problemStats.acceptedSubmissions / problemStats.totalSubmissions) * 100) : 0}%
+                </div>
+                <div className="text-sm text-gray-400 mb-3">Acceptance Rate</div>
+                <div className="w-full bg-gray-700/50 rounded-full h-2.5 stat-bar" style={{"--percent": `${problemStats.totalSubmissions ? (problemStats.acceptedSubmissions / problemStats.totalSubmissions) * 100 : 0}%`}}>
+                </div>
+                <div className="text-xs text-gray-500 mt-2">
+                  {problemStats.acceptedSubmissions} / {problemStats.totalSubmissions} submissions
+                </div>
+              </div>
+              
+              {/* Difficulty Distribution */}
+              <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-6 shadow-lg border border-gray-700 card-hover">
+                <div className="h-12 w-12 bg-yellow-600/20 text-yellow-500 rounded-lg flex items-center justify-center mb-4">
+                  <FaChartBar className="text-2xl" />
+                </div>
+                <div className="text-xl font-bold mb-3">Difficulty Breakdown</div>
+                
+                <div className="space-y-3">
+                  <div>
+                    <div className="flex justify-between text-xs mb-1">
+                      <span className="text-green-400">Easy</span>
+                      <span className="text-gray-400">{problemStats.easyProblems.solved}/{problemStats.easyProblems.total}</span>
+                    </div>
+                    <div className="w-full bg-gray-700/50 rounded-full h-1.5">
+                      <div className="bg-green-500 h-1.5 rounded-full" style={{ width: `${(problemStats.easyProblems.solved / Math.max(problemStats.easyProblems.total, 1)) * 100}%` }}></div>
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <div className="flex justify-between text-xs mb-1">
+                      <span className="text-yellow-400">Medium</span>
+                      <span className="text-gray-400">{problemStats.mediumProblems.solved}/{problemStats.mediumProblems.total}</span>
+                    </div>
+                    <div className="w-full bg-gray-700/50 rounded-full h-1.5">
+                      <div className="bg-yellow-500 h-1.5 rounded-full" style={{ width: `${(problemStats.mediumProblems.solved / Math.max(problemStats.mediumProblems.total, 1)) * 100}%` }}></div>
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <div className="flex justify-between text-xs mb-1">
+                      <span className="text-red-400">Hard</span>
+                      <span className="text-gray-400">{problemStats.hardProblems.solved}/{problemStats.hardProblems.total}</span>
+                    </div>
+                    <div className="w-full bg-gray-700/50 rounded-full h-1.5">
+                      <div className="bg-red-500 h-1.5 rounded-full" style={{ width: `${(problemStats.hardProblems.solved / Math.max(problemStats.hardProblems.total, 1)) * 100}%` }}></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Activity Calendar */}
+            <div className="mb-8">
+              <h3 className="text-xl font-semibold mb-4 flex items-center">
+                <FaCalendarAlt className="mr-2" /> Activity Calendar
+              </h3>
+              <div className="calendar-container bg-white/5 p-4 rounded-lg overflow-x-auto">
+                <div className="calendar-wrapper min-w-[900px]">
+                  <div className="flex justify-between mb-2">
+                    {Array.from({ length: 7 }).map((_, index) => {
+                      const day = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][index];
+                      return (
+                        <div key={day} className="text-xs text-gray-500 w-8 text-center">{day}</div>
+                      );
+                    })}
+                  </div>
+                  <div className="grid grid-cols-7 gap-1">
+                    {Array.from({ length: 180 }).map((_, index) => {
+                      const date = new Date();
+                      date.setDate(date.getDate() - (180 - index));
+                      const dateString = date.toISOString().split('T')[0];
+                      const dayData = activityData[dateString] || { submissions: 0, accepted: 0 };
+                      const submissions = typeof dayData === 'object' ? dayData.submissions : 0;
+                      const accepted = typeof dayData === 'object' ? dayData.accepted : 0;
+                      
+                      // Determine color based on submissions
+                      let bgColorClass = 'bg-gray-800'; // No submissions
+                      if (submissions === 1) bgColorClass = 'bg-green-900';
+                      if (submissions === 2) bgColorClass = 'bg-green-700';
+                      if (submissions === 3) bgColorClass = 'bg-green-600';
+                      if (submissions === 4) bgColorClass = 'bg-green-500';
+                      if (submissions >= 5) bgColorClass = 'bg-green-400';
+                      
+                      return (
+                        <div
+                          key={index}
+                          className={`w-3 h-3 rounded-sm ${bgColorClass}`}
+                          title={`${dateString}: ${submissions} submissions, ${accepted} accepted`}
+                        ></div>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div className="flex justify-end mt-2 items-center">
+                  <div className="text-xs text-gray-500 mr-2">Less</div>
+                  <div className="w-3 h-3 bg-gray-800 rounded-sm"></div>
+                  <div className="w-3 h-3 bg-green-900 rounded-sm mx-1"></div>
+                  <div className="w-3 h-3 bg-green-700 rounded-sm mx-1"></div>
+                  <div className="w-3 h-3 bg-green-600 rounded-sm mx-1"></div>
+                  <div className="w-3 h-3 bg-green-500 rounded-sm mx-1"></div>
+                  <div className="w-3 h-3 bg-green-400 rounded-sm"></div>
+                  <div className="text-xs text-gray-500 ml-2">More</div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Submission Trends */}
+            <div className="mb-8">
+              <h3 className="text-xl font-semibold mb-4 flex items-center">
+                <FaChartBar className="mr-2" /> Submission Trends
+              </h3>
+              <div className="bg-white/5 p-4 rounded-lg">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="text-center p-4 bg-gray-800/50 rounded-lg">
+                    <div className="text-3xl font-bold text-blue-400">{problemStats.weeklySubmissions}</div>
+                    <div className="text-sm text-gray-300">This Week</div>
+                  </div>
+                  
+                  <div className="text-center p-4 bg-gray-800/50 rounded-lg">
+                    <div className="text-3xl font-bold text-green-400">
+                      {problemStats.acceptedSubmissions}
+                    </div>
+                    <div className="text-sm text-gray-300">Accepted</div>
+                  </div>
+                  
+                  <div className="text-center p-4 bg-gray-800/50 rounded-lg">
+                    <div className="text-3xl font-bold text-purple-400">
+                      {problemStats.totalSubmissions - problemStats.acceptedSubmissions}
+                    </div>
+                    <div className="text-sm text-gray-300">Attempted</div>
+                  </div>
+                </div>
+                
+                {/* Submission Trend Graph */}
+                <div className="h-48 relative mt-6">
+                  <div className="absolute inset-0 flex items-end">
+                    {problemStats.submissionTrend.map((day, index) => {
+                      const submissionHeight = day.submissions ? `${Math.min(day.submissions * 15, 100)}%` : '2px';
+                      const acceptedHeight = day.accepted ? `${Math.min(day.accepted * 15, 100)}%` : '0';
+                      
+                      return (
+                        <div key={index} className="flex-1 flex flex-col items-center justify-end h-full">
+                          <div className="relative w-full h-full flex items-end justify-center">
+                            {/* Total submissions bar */}
+                            <div 
+                              className="w-3/4 bg-blue-500/30 rounded-t-sm" 
+                              style={{ height: submissionHeight }}
+                              title={`${day.date}: ${day.submissions} submissions`}
+                            ></div>
+                            
+                            {/* Accepted submissions bar */}
+                            <div 
+                              className="w-3/4 bg-green-500 absolute bottom-0 rounded-t-sm" 
+                              style={{ height: acceptedHeight }}
+                              title={`${day.date}: ${day.accepted} accepted`}
+                            ></div>
+                          </div>
+                          {index % 5 === 0 && (
+                            <div className="text-xs text-gray-500 mt-1">
+                              {new Date(day.date).getDate()}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+                
+                <div className="flex justify-center mt-4 text-xs text-gray-400">
+                  <div className="flex items-center mr-4">
+                    <div className="w-3 h-3 bg-blue-500/30 mr-1"></div>
+                    <span>Total Submissions</span>
+                  </div>
+                  <div className="flex items-center">
+                    <div className="w-3 h-3 bg-green-500 mr-1"></div>
+                    <span>Accepted</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Language Distribution */}
+            <div className="mb-8">
+              <h3 className="text-xl font-semibold mb-4 flex items-center">
+                <FaCode className="mr-2" /> Language Distribution
+              </h3>
+              <div className="bg-white/5 p-4 rounded-lg">
+                {/* Main language breakdown */}
+                <div className="mb-6">
+                  <h4 className="text-lg font-medium mb-3">Your Top Languages</h4>
+                  
+                  {/* C++ */}
+                  <div className="mb-4">
+                    <div className="flex justify-between items-center mb-1">
+                      <div className="flex items-center">
+                        <SiCplusplus className="text-blue-400 mr-2" />
+                        <span className="font-medium">C++</span>
+                      </div>
+                      <div className="text-sm text-gray-400">
+                        {languageDistribution.cpp} submissions
+                      </div>
+                    </div>
+                    <div className="w-full bg-gray-700/50 rounded-full h-2.5">
+                      <div 
+                        className="bg-blue-500 h-2.5 rounded-full" 
+                        style={{ width: `${Math.min((languageDistribution.cpp / Math.max(problemStats.totalSubmissions, 1)) * 100, 100)}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                  
+                  {/* Python */}
+                  <div className="mb-4">
+                    <div className="flex justify-between items-center mb-1">
+                      <div className="flex items-center">
+                        <FaPython className="text-green-400 mr-2" />
+                        <span className="font-medium">Python</span>
+                      </div>
+                      <div className="text-sm text-gray-400">
+                        {languageDistribution.python} submissions
+                      </div>
+                    </div>
+                    <div className="w-full bg-gray-700/50 rounded-full h-2.5">
+                      <div 
+                        className="bg-green-500 h-2.5 rounded-full" 
+                        style={{ width: `${Math.min((languageDistribution.python / Math.max(problemStats.totalSubmissions, 1)) * 100, 100)}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                  
+                  {/* Java */}
+                  <div className="mb-4">
+                    <div className="flex justify-between items-center mb-1">
+                      <div className="flex items-center">
+                        <FaJava className="text-orange-400 mr-2" />
+                        <span className="font-medium">Java</span>
+                      </div>
+                      <div className="text-sm text-gray-400">
+                        {languageDistribution.java} submissions
+                      </div>
+                    </div>
+                    <div className="w-full bg-gray-700/50 rounded-full h-2.5">
+                      <div 
+                        className="bg-orange-500 h-2.5 rounded-full" 
+                        style={{ width: `${Math.min((languageDistribution.java / Math.max(problemStats.totalSubmissions, 1)) * 100, 100)}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                  
+                  {/* JavaScript */}
+                  <div className="mb-4">
+                    <div className="flex justify-between items-center mb-1">
+                      <div className="flex items-center">
+                        <FaJs className="text-yellow-400 mr-2" />
+                        <span className="font-medium">JavaScript</span>
+                      </div>
+                      <div className="text-sm text-gray-400">
+                        {languageDistribution.javascript} submissions
+                      </div>
+                    </div>
+                    <div className="w-full bg-gray-700/50 rounded-full h-2.5">
+                      <div 
+                        className="bg-yellow-500 h-2.5 rounded-full" 
+                        style={{ width: `${Math.min((languageDistribution.javascript / Math.max(problemStats.totalSubmissions, 1)) * 100, 100)}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                  
+                  {/* Other languages */}
+                  <div>
+                    <div className="flex justify-between items-center mb-1">
+                      <div className="flex items-center">
+                        <FaTerminal className="text-purple-400 mr-2" />
+                        <span className="font-medium">Other Languages</span>
+                      </div>
+                      <div className="text-sm text-gray-400">
+                        {languageDistribution.other} submissions
+                      </div>
+                    </div>
+                    <div className="w-full bg-gray-700/50 rounded-full h-2.5">
+                      <div 
+                        className="bg-purple-500 h-2.5 rounded-full" 
+                        style={{ width: `${Math.min((languageDistribution.other / Math.max(problemStats.totalSubmissions, 1)) * 100, 100)}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* All languages grid */}
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mt-6 pt-6 border-t border-gray-700">
+                  {problemStats.languages.map(language => (
+                    <div key={language.name} className="flex flex-col items-center p-3 bg-white/5 rounded-lg hover:bg-white/10 transition-colors">
+                      <language.icon className="text-3xl mb-2" />
+                      <div className="font-medium">{language.name}</div>
+                      <div className="text-2xl font-bold">{language.count}</div>
+                      <div className="text-xs text-gray-500">
+                        {Math.round((language.count / Math.max(problemStats.solvedProblems, 1)) * 100)}%
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          {/* Recent Submissions */}
+          <div className="mb-12 bg-white/10 backdrop-blur-sm rounded-xl p-6 shadow-lg">
+            <h2 className="text-2xl font-bold mb-6">Recent Submissions</h2>
+            
+            {statsLoading ? (
+              <div className="flex justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-500"></div>
+              </div>
+            ) : recentSubmissions.length === 0 ? (
+              <div className="text-center py-8 text-gray-400">
+                <p>No submissions yet. Start solving problems!</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-gray-700">
+                      <th className="text-left py-3 px-4">Problem</th>
+                      <th className="text-left py-3 px-4">Difficulty</th>
+                      <th className="text-left py-3 px-4">Language</th>
+                      <th className="text-left py-3 px-4">Status</th>
+                      <th className="text-left py-3 px-4">Submitted</th>
+                      <th className="text-left py-3 px-4">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {recentSubmissions.map((submission, index) => {
+                      // Determine difficulty color
+                      let difficultyColor = "text-green-400";
+                      let difficultyBg = "bg-green-900/30";
+                      if (submission.difficulty === "Medium") {
+                        difficultyColor = "text-yellow-400";
+                        difficultyBg = "bg-yellow-900/30";
+                      } else if (submission.difficulty === "Hard") {
+                        difficultyColor = "text-red-400";
+                        difficultyBg = "bg-red-900/30";
+                      }
+                      
+                      return (
+                        <tr key={index} className="border-b border-gray-700/50 hover:bg-white/5">
+                          <td className="py-3 px-4">
+                            <div className="font-medium">{submission.problemTitle}</div>
+                            <div className="text-xs text-gray-400">{submission.problemId}</div>
+                          </td>
+                          <td className="py-3 px-4">
+                            <span className={`px-2 py-1 rounded-full text-xs ${difficultyBg} ${difficultyColor}`}>
+                              {submission.difficulty || "Easy"}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4">
+                            <div className="flex items-center">
+                              {submission.language === 'javascript' && <FaJs className="text-yellow-400 mr-2" />}
+                              {submission.language === 'python' && <FaPython className="text-blue-400 mr-2" />}
+                              {submission.language === 'java' && <FaJava className="text-orange-400 mr-2" />}
+                              {submission.language === 'cpp' && <SiCplusplus className="text-blue-400 mr-2" />}
+                              {submission.language === 'csharp' && <SiCsharp className="text-purple-400 mr-2" />}
+                              {!['javascript', 'python', 'java', 'cpp', 'csharp'].includes(submission.language) && 
+                                <FaCode className="text-gray-400 mr-2" />}
+                              {submission.language}
+                            </div>
+                          </td>
+                          <td className="py-3 px-4">
+                            <span className={`px-2 py-1 rounded-full text-xs ${submission.status === 'Accepted' ? 'bg-green-900/50 text-green-400' : 'bg-red-900/50 text-red-400'}`}>
+                              {submission.status}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4">
+                            <div className="text-sm">{new Date(submission.submittedAt).toLocaleDateString()}</div>
+                            <div className="text-xs text-gray-400">{new Date(submission.submittedAt).toLocaleTimeString()}</div>
+                          </td>
+                          <td className="py-3 px-4">
+                            <button 
+                              onClick={() => {
+                                setSelectedSubmission(submission);
+                                setShowSolutionModal(true);
+                              }}
+                              className="text-blue-400 hover:text-blue-300 transition-colors"
+                            >
+                              <FaEye className="inline mr-1" /> View
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+          
+          {/* Solution Modal */}
+          {showSolutionModal && selectedSubmission && (
+            <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
+              <div className="bg-gray-800 rounded-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+                <div className="p-6">
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-xl font-bold">
+                      Solution: {selectedSubmission.problem.title}
+                    </h3>
+                    <button
+                      onClick={() => setShowSolutionModal(false)}
+                      className="text-gray-400 hover:text-white"
+                    >
+                      &times;
+                    </button>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div>
+                      <p className="text-sm text-gray-400">Status</p>
+                      <p className={`text-lg ${
+                        selectedSubmission.status === 'Accepted' ? 'text-green-400' : 'text-red-400'
+                      }`}>
+                        {selectedSubmission.status}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-400">Language</p>
+                      <p className="text-lg">{selectedSubmission.language.toUpperCase()}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-400">Execution Time</p>
+                      <p className="text-lg">{selectedSubmission.executionTime} ms</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-400">Submitted</p>
+                      <p className="text-lg">{new Date(selectedSubmission.createdAt).toLocaleString()}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="mb-4">
+                    <p className="text-sm text-gray-400 mb-2">Code</p>
+                    <div className="bg-gray-900 p-4 rounded-md overflow-x-auto">
+                      <pre className="text-sm">
+                        <code>{selectedSubmission.code}</code>
+                      </pre>
+                    </div>
+                  </div>
+                  
+                  {selectedSubmission.testResults && selectedSubmission.testResults.length > 0 && (
+                    <div>
+                      <p className="text-sm text-gray-400 mb-2">Test Results</p>
+                      <div className="space-y-2">
+                        {selectedSubmission.testResults.map((test, index) => (
+                          <div key={index} className={`p-3 rounded-md ${
+                            test.passed ? 'bg-green-900/30' : 'bg-red-900/30'
+                          }`}>
+                            <div className="flex justify-between">
+                              <span className="font-medium">Test Case {index + 1}</span>
+                              <span className={test.passed ? 'text-green-400' : 'text-red-400'}>
+                                {test.passed ? 'Passed' : 'Failed'}
+                              </span>
+                            </div>
+                            <div className="mt-2 grid grid-cols-1 gap-2">
+                              <div>
+                                <p className="text-xs text-gray-400">Input</p>
+                                <pre className="text-xs bg-black/30 p-2 rounded mt-1 overflow-x-auto">{test.input}</pre>
+                              </div>
+                              <div>
+                                <p className="text-xs text-gray-400">Expected</p>
+                                <pre className="text-xs bg-black/30 p-2 rounded mt-1 overflow-x-auto">{test.expected}</pre>
+                              </div>
+                              <div>
+                                <p className="text-xs text-gray-400">Output</p>
+                                <pre className="text-xs bg-black/30 p-2 rounded mt-1 overflow-x-auto">{test.output}</pre>
+                              </div>
+                              {test.error && (
+                                <div>
+                                  <p className="text-xs text-red-400">Error</p>
+                                  <pre className="text-xs bg-black/30 p-2 rounded mt-1 overflow-x-auto text-red-300">{test.error}</pre>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  <div className="mt-6 flex justify-end">
+                    <button
+                      onClick={() => setShowSolutionModal(false)}
+                      className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-md"
+                    >
+                      Close
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default Dashboard;

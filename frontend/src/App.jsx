@@ -11,6 +11,7 @@ import ProblemDetail from './components/ProblemDetail';
 import Contests from './components/Contests';
 import Leaderboard from './components/Leaderboard';
 import Homepage from './components/Homepage';
+import LandingPage from './components/LandingPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import './index.css';
 
@@ -23,7 +24,7 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route 
-            path="/dashboard" 
+            path="/codezen" 
             element={
               <ProtectedRoute>
                 <Dashboard />
@@ -71,6 +72,7 @@ function App() {
             } 
           />
           <Route path="/" element={<Homepage />} />
+          <Route path="/dashboard" element={<LandingPage />} />
         </Routes>
       </Router>
     </AuthProvider>

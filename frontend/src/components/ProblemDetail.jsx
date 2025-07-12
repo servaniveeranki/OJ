@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useContext, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Header from './Header';
@@ -7,7 +6,7 @@ import axios from '../api/axios';
 
 // Code editor components
 import MonacoEditor from '@monaco-editor/react';
-import { FaPlay, FaCheck, FaSave, FaUndo, FaRedo, FaExpandAlt, FaCompressAlt } from 'react-icons/fa';
+import { FaPlay, FaCheck, FaSave, FaUndo, FaRedo, FaExpandAlt, FaCompressAlt, FaTrophy, FaClock, FaCode } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 
 const ProblemDetail = () => {
@@ -40,6 +39,8 @@ const ProblemDetail = () => {
     passed: 0,
     total: 0
   });
+  const [showSuccessDialog, setShowSuccessDialog] = useState(false);
+  const [solutionTime, setSolutionTime] = useState(0);
   const editorRef = useRef(null);
 
   // Language options
@@ -149,6 +150,7 @@ const ProblemDetail = () => {
     setSubmitting(true);
     setResult(null);
     toast.info('Submitting solution...');
+    const startTime = Date.now();
 
     try {
       // Submit the solution to be judged against all test cases
@@ -159,11 +161,15 @@ const ProblemDetail = () => {
       });
       
       setResult(response.data);
+      const submissionTime = Date.now() - startTime;
+      setSolutionTime(submissionTime);
       
       if (response.data.status === 'Accepted') {
-        toast.success('🎉 Solution accepted! All test cases passed.');
         // Save the successful code
         localStorage.setItem(`accepted-code-${id}-${language}`, code);
+        
+        // Show success dialog instead of toast
+        setShowSuccessDialog(true);
         
         // Track successful submission in user stats
         if (user?._id) {
@@ -274,7 +280,8 @@ const handleRunCustomInput = async () => {
       const response = await axios.post('/api/problems/run-custom', {
         code,
         language,
-        input: customInput
+        input: customInput,
+        problemId: id // Include the problem ID from URL params
       });
       
       setCustomOutput({
@@ -352,9 +359,73 @@ const handleRunCustomInput = async () => {
     );
   };
 
+  // Success Dialog Component
+  const SuccessDialog = () => {
+    if (!showSuccessDialog) return null;
+    
+    // Format solution time
+    const formatTime = (ms) => {
+      if (ms < 1000) return `${ms}ms`;
+      const seconds = Math.floor(ms / 1000);
+      const remainingMs = ms % 1000;
+      return `${seconds}.${remainingMs}s`;
+    };
+
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+        <div className="bg-white rounded-lg shadow-xl p-8 max-w-lg w-full mx-4 transform transition-all animate-fade-in-up">
+          <div className="text-center">
+            <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-green-100 mb-6">
+              <FaTrophy className="h-10 w-10 text-green-600" />
+            </div>
+            
+            <h3 className="text-3xl font-bold text-gray-900 mb-2">Solution Accepted!</h3>
+            <p className="text-lg text-gray-600 mb-6">Congratulations! All test cases passed successfully.</p>
+            
+            <div className="flex flex-col space-y-4 mb-6">
+              <div className="flex items-center justify-between bg-gray-50 p-4 rounded-lg">
+                <div className="flex items-center">
+                  <FaClock className="text-indigo-500 mr-3" />
+                  <span className="text-gray-700 font-medium">Time to Solve:</span>
+                </div>
+                <span className="text-xl font-bold text-indigo-600">{formatTime(solutionTime)}</span>
+              </div>
+              
+              <div className="flex items-center justify-between bg-gray-50 p-4 rounded-lg">
+                <div className="flex items-center">
+                  <FaCode className="text-indigo-500 mr-3" />
+                  <span className="text-gray-700 font-medium">Language:</span>
+                </div>
+                <span className="text-xl font-bold text-indigo-600">
+                  {languages.find(lang => lang.value === language)?.label || language}
+                </span>
+              </div>
+            </div>
+            
+            <div className="flex justify-center space-x-4">
+              <button
+                onClick={() => setShowSuccessDialog(false)}
+                className="px-6 py-3 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors"
+              >
+                Continue Coding
+              </button>
+              <button
+                onClick={() => navigate('/problems')}
+                className="px-6 py-3 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400 transition-colors"
+              >
+                Back to Problems
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <Header />
+      <SuccessDialog />
       
       <div className="container mx-auto px-4 py-8">
         {user && renderUserStats()}

@@ -14,12 +14,16 @@ router.get('/', problemController.getAllProblems);
 // @desc    Get a single problem by ID
 router.get('/:id', problemController.getProblemById);
 
-// @route   POST /api/problems/submit
+// @route   POST /api/problems/:id/submit
 // @desc    Submit code for a problem
-router.post('/submit', problemController.submitCode);
+router.post('/:id/submit', problemController.submitCode);
 
 // @route   POST /api/problems/run-test
 // @desc    Run a custom test case
 router.post('/run-test', problemController.runTest);
+
+// @route   POST /api/problems/run-custom
+// @desc    Execute code with custom input
+router.post('/run-custom', problemController.executeCustomInput);
 
 module.exports = router;

@@ -25,6 +25,7 @@ const Header = () => {
           <Link to="/problems" className="hover:text-indigo-200 transition-colors">Problems</Link>
           <Link to="/contests" className="hover:text-indigo-200 transition-colors">Contests</Link>
           <Link to="/leaderboard" className="hover:text-indigo-200 transition-colors">Leaderboard</Link>
+          <Link to="/codezen" className="hover:text-indigo-200 transition-colors">Dashboard</Link>
         </nav>
         
         {/* User Avatar and Dropdown or Login/Register Buttons */}
