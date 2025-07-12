@@ -173,6 +173,65 @@ router.get('/stats/:userId', async (req, res) => {
       { $group: { _id: '$language', count: { $sum: 1 } } }
     ]);
     
+    // Get daily submission activity for the last 6 months
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+    
+    const dailyActivity = await Submission.aggregate([
+      { 
+        $match: { 
+          user: userId,
+          createdAt: { $gte: sixMonthsAgo } 
+        } 
+      },
+      {
+        $group: {
+          _id: { 
+            $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } 
+          },
+          count: { $sum: 1 },
+          acceptedCount: {
+            $sum: { $cond: [{ $eq: ["$status", "Accepted"] }, 1, 0] }
+          }
+        }
+      },
+      { $sort: { _id: 1 } }
+    ]);
+    
+    // Get difficulty distribution
+    const difficultyStats = await Submission.aggregate([
+      {
+        $match: { 
+          user: userId,
+          status: "Accepted"
+        }
+      },
+      {
+        $lookup: {
+          from: "problems",
+          localField: "problem",
+          foreignField: "_id",
+          as: "problemDetails"
+        }
+      },
+      { $unwind: "$problemDetails" },
+      {
+        $group: {
+          _id: "$problemDetails.difficulty",
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+    
+    // Format the daily activity data for the calendar
+    const activityData = {};
+    dailyActivity.forEach(day => {
+      activityData[day._id] = {
+        submissions: day.count,
+        accepted: day.acceptedCount
+      };
+    });
+    
     res.json({
       problemsSolved: user.problemsSolved || 0,
       totalSubmissions: user.totalSubmissions || 0,
@@ -187,10 +246,36 @@ router.get('/stats/:userId', async (req, res) => {
       languageDistribution: languageStats.map(item => ({
         language: item._id,
         count: item.count
-      }))
+      })),
+      dailyActivity: activityData,
+      difficultyDistribution: {
+        Easy: difficultyStats.find(d => d._id === 'Easy')?.count || 0,
+        Medium: difficultyStats.find(d => d._id === 'Medium')?.count || 0,
+        Hard: difficultyStats.find(d => d._id === 'Hard')?.count || 0
+      }
     });
   } catch (error) {
     console.error('Error fetching user statistics:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Get a specific submission/solution
+router.get('/submission/:submissionId', async (req, res) => {
+  try {
+    const { submissionId } = req.params;
+    
+    const submission = await Submission.findById(submissionId)
+      .populate('problem', 'title difficulty functionName functionSignature')
+      .populate('user', 'firstname lastname');
+    
+    if (!submission) {
+      return res.status(404).json({ message: 'Submission not found' });
+    }
+    
+    res.json(submission);
+  } catch (error) {
+    console.error('Error fetching submission:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });

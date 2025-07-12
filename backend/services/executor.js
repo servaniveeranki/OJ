@@ -146,7 +146,32 @@ print(${problem.functionName}(*__inputs))`;
         paramPairs.forEach((param, index) => {
             const arg = splitInputs[index];
             if (param.type.includes("vector")) {
-                inputParsingCode += `
+                if (param.type.includes("string")) {
+                    // Handle vector<string> specially
+                    inputParsingCode += `
+        string ${param.name}Str = ${JSON.stringify(arg)};
+        ${param.name}Str.erase(remove(${param.name}Str.begin(), ${param.name}Str.end(), '['), ${param.name}Str.end());
+        ${param.name}Str.erase(remove(${param.name}Str.begin(), ${param.name}Str.end(), ']'), ${param.name}Str.end());
+        vector<string> ${param.name};
+        string temp_${param.name};
+        stringstream ss_${param.name}(${param.name}Str);
+        
+        // Parse the comma-separated string values
+        while (ss_${param.name}.good()) {
+            string substr;
+            getline(ss_${param.name}, substr, ',');
+            
+            // Clean up the string - remove quotes and whitespace
+            substr.erase(remove(substr.begin(), substr.end(), '"'), substr.end());
+            substr.erase(remove(substr.begin(), substr.end(), ' '), substr.end());
+            
+            if (!substr.empty()) {
+                ${param.name}.push_back(substr);
+            }
+        }`;
+                } else {
+                    // Default vector<int> handling
+                    inputParsingCode += `
         string ${param.name}Str = ${JSON.stringify(arg)};
         ${param.name}Str.erase(remove(${param.name}Str.begin(), ${param.name}Str.end(), '['), ${param.name}Str.end());
         ${param.name}Str.erase(remove(${param.name}Str.begin(), ${param.name}Str.end(), ']'), ${param.name}Str.end());
@@ -157,6 +182,7 @@ print(${problem.functionName}(*__inputs))`;
             ${param.name}.push_back(temp_${param.name});
             if (ss_${param.name}.peek() == ',') ss_${param.name}.ignore();
         }`;
+                }
             }
             else if (param.type === 'int' || param.type === 'double') {
                 inputParsingCode += `
