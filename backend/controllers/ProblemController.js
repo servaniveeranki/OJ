@@ -156,15 +156,41 @@ async function submitCode(req, res) {
       }
     }
     
-    // Return the results to the client
-    res.json({
+    // Prepare the response
+    const response = {
       status,
       results,
       executionTime,
       passedCount,
       totalTests,
       submissionId: submission._id
-    });
+    };
+    
+    // If the submission has errors, use AI to analyze them
+    if (status !== 'Accepted') {
+      // Find the first failed test with an error
+      const failedTest = results.find(result => !result.passed && result.error);
+      
+      if (failedTest) {
+        try {
+          // Import the AI service
+          const { analyzeCodeError } = require('../services/ai');
+          
+          // Get AI analysis for the error
+          const errorAnalysis = await analyzeCodeError(code, language, failedTest.error, failedTest.input);
+          
+          // Add the AI analysis to the response
+          response.aiAnalysis = errorAnalysis;
+          console.log('Added AI error analysis to submission results');
+        } catch (aiError) {
+          console.error('Error analyzing code error:', aiError);
+          // Continue without AI analysis if it fails
+        }
+      }
+    }
+    
+    // Return the results to the client
+    res.json(response);
   } catch (err) {
     console.error('Error in submission:', err);
     res.status(500).json({ error: err.message });
@@ -187,7 +213,31 @@ async function runTest(req, res) {
       testCases: problem.testCases
     });
 
-    res.json({ results }); // Send all results properly structured
+    // Prepare the response
+    const response = { results };
+    
+    // Check if any test case failed with an error
+    const failedTest = results.find(result => !result.passed && result.error);
+    
+    // If there's a failed test with an error, use the AI service to analyze it
+    if (failedTest) {
+      try {
+        // Import the AI service
+        const { analyzeCodeError } = require('../services/ai');
+        
+        // Get AI analysis for the error
+        const errorAnalysis = await analyzeCodeError(code, language, failedTest.error, failedTest.input);
+        
+        // Add the AI analysis to the response
+        response.aiAnalysis = errorAnalysis;
+        console.log('Added AI error analysis to test results');
+      } catch (aiError) {
+        console.error('Error analyzing code error:', aiError);
+        // Continue without AI analysis if it fails
+      }
+    }
+
+    res.json(response);
   } catch (err) {
     console.error('Error executing test:', err);
     res.status(500).json({ error: err.message });
@@ -251,13 +301,34 @@ async function executeCustomInput(req, res) {
       testCases: [customTestCase]
     });
 
-    // Return the response in the format expected by the frontend
-    res.json({ 
+    // Prepare the response
+    const response = { 
       status: results[0].passed ? 'Success' : (results[0].error ? 'Runtime Error' : 'Execution Complete'),
       output: results[0].output,
       error: results[0].error || null,
       executionTime: results[0].time
-    });
+    };
+    
+    // If there's an error, use the AI service to analyze it
+    if (results[0].error) {
+      try {
+        // Import the AI service
+        const { analyzeCodeError } = require('../services/ai');
+        
+        // Get AI analysis for the error
+        const errorAnalysis = await analyzeCodeError(code, language, results[0].error, input);
+        
+        // Add the AI analysis to the response
+        response.aiAnalysis = errorAnalysis;
+        console.log('Added AI error analysis to response');
+      } catch (aiError) {
+        console.error('Error analyzing code error:', aiError);
+        // Continue without AI analysis if it fails
+      }
+    }
+
+    // Return the response
+    res.json(response);
   } catch (err) {
     console.error('Error executing custom input:', err);
     res.status(500).json({ error: err.message });
