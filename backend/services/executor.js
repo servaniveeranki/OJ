@@ -1,58 +1,78 @@
-
 const axios = require('axios');
 const { normalizeOutput, deepCompare } = require('../utils/inputParser');
 
 function assembleFullCode(problem, userCode, language, testInput) {
-  if (language === 'javascript') {
-    // Build function header
-    const header = `function ${problem.functionName}${problem.functionSignature} {`;
-    const functionCode = `${header}\n${userCode}\n}`;
-    // Test harness: parse input string into arguments
-    // Handles cases like '[1,2,3], 4' -> twoSum([1,2,3], 4)
+  if (language === 'java') {
+    const className = 'Main'; // must match file name Main.java in executor
+    const functionCode = userCode.trim();
+
+    const signature = problem.functionSignature;
+    const paramListStr = signature.substring(signature.indexOf('(') + 1, signature.lastIndexOf(')'));
+    const params = paramListStr.split(',').map(param => param.trim().split(/\s+/).pop());
+
+    const inputs = (() => {
+      const result = [];
+      let curr = '', depth = 0;
+      for (let i = 0; i < testInput.length; i++) {
+        const c = testInput[i];
+        if (c === '[' || c === '{' || c === '(') depth++;
+        if (c === ']' || c === '}' || c === ')') depth--;
+        if (c === ',' && depth === 0) {
+          result.push(curr.trim()); curr = '';
+        } else {
+          curr += c;
+        }
+      }
+      if (curr.trim().length > 0) result.push(curr.trim());
+      return result.map(x => {
+        const eqIdx = x.indexOf('=');
+        return eqIdx !== -1 ? x.slice(eqIdx + 1).trim() : x.trim();
+      });
+    })();
+
+    let inputParsing = '';
+    let argsList = '';
+    params.forEach((name, idx) => {
+      const val = inputs[idx];
+      if (val.startsWith("\"") || isNaN(val)) {
+        inputParsing += `String ${name} = ${val};\n        `;
+      } else if (val.includes(".")) {
+        inputParsing += `double ${name} = ${val};\n        `;
+      } else {
+        inputParsing += `int ${name} = ${val};\n        `;
+      }
+      argsList += `${name}, `;
+    });
+    argsList = argsList.replace(/, $/, '');
+
     const testCode = `
-// Parse input string into arguments
-const __inputs = (function() {
-  // Split on commas not inside brackets
-  const input = ${JSON.stringify(testInput)};
-  const result = [];
-  let curr = '', depth = 0;
-  for (let i = 0; i < input.length; i++) {
-    const c = input[i];
-    if (c === '[' || c === '{' || c === '(') depth++;
-    if (c === ']' || c === '}' || c === ')') depth--;
-    if (c === ',' && depth === 0) {
-      result.push(curr.trim()); curr = '';
-    } else {
-      curr += c;
+public class ${className} {
+    ${functionCode}
+
+    public static void main(String[] args) {
+        ${inputParsing}
+        System.out.println(${problem.functionName}(${argsList}));
     }
-  }
-  if (curr.trim().length > 0) result.push(curr.trim());
-  return result.map(x => eval(x));
-})();
-let __result;
-const _ret = ${problem.functionName}(..._inputs);
-if (typeof _ret === 'undefined' && Array.isArray(_inputs[0])) {
-  __result = __inputs[0];
-} else {
-  __result = _ret;
-}
-console.log(__result);`;
-    return `${functionCode}\n${testCode}`;
+}`;
+    return testCode;
+
   } else if (language === 'python') {
-    // Build function header
-    const header = `def ${problem.functionName}${problem.functionSignature}`;
-    const functionCode = `${header}\n${userCode}`;
-    // Test harness: parse input string into arguments
+    const header = `def ${problem.functionName}${problem.functionSignature}:`;
+    const indentedUserCode = userCode
+      .split('\n')
+      .map(line => '    ' + line)
+      .join('\n');
+
     const testCode = `
 import ast
-__inputs = []
 _input = '''${testInput}'''.strip()
+__inputs = []
 curr = ''
 depth = 0
 for c in _input:
     if c in '[{(':
         depth += 1
-    if c in ']})':
+    elif c in ']})':
         depth -= 1
     if c == ',' and depth == 0:
         __inputs.append(curr.strip())
@@ -63,182 +83,121 @@ if curr.strip():
     __inputs.append(curr.strip())
 __inputs = [ast.literal_eval(x) for x in __inputs]
 print(${problem.functionName}(*__inputs))`;
-    return `${functionCode}\n${testCode}`;
+
+    return `${header}\n${indentedUserCode}\n${testCode}`;
   }
-  
-  else if(language === 'cpp'){
+
+  // C++ (already good)
+  else if (language === 'cpp') {
     const includes = `
-    #include <iostream>
-    #include <vector>
-    #include <string>
-    #include <sstream>
-    #include <algorithm>
-    #include <iterator>
-    #include <unordered_map>
-    using namespace std;
-    `;
-    
-        const functionCode = userCode;
-        const input = testInput;
-    
-        // Parse the function signature to extract param names
-        const signature = problem.functionSignature;
-        const returnType = signature.substring(0, signature.indexOf(problem.functionName)).trim();
+#include <iostream>
+#include <vector>
+#include <string>
+#include <climits> 
+#include <sstream>
+#include <algorithm>
+#include <iterator>
+#include <unordered_map>
+using namespace std;
+`;
 
-        console.log("RETURN TYPE : ", returnType);
-        const paramListStr = signature.substring(signature.indexOf('(') + 1, signature.lastIndexOf(')'));
-        const paramPairs = paramListStr.split(',').map(param => {
-            const parts = param.trim().split(/\s+/); // split by space
-            const type = parts.slice(0, -1).join(' ');
-            const name = parts[parts.length - 1];
-            return { type, name };
-        });
-    
-        // Parse input string into separate arguments
-        // const splitInputs = (() => {
-        //     const result = [];
-        //     let curr = '', depth = 0;
-        //     for (let i = 0; i < input.length; i++) {
-        //         const c = input[i];
-        //         if (c === '[' || c === '{' || c === '(') depth++;
-        //         if (c === ']' || c === '}' || c === ')') depth--;
-        //         if (c === ',' && depth === 0) {
-        //             result.push(curr.trim());
-        //             curr = '';
-        //         } else {
-        //             curr += c;
-        //         }
-        //     }
-        //     if (curr.trim().length > 0) result.push(curr.trim());
-        //     return result;
-        // })();
+    const functionCode = userCode;
+    const input = testInput;
 
-        const splitInputs = (() => {
-  const result = [];
-  let curr = '', depth = 0, inString = false;
-  for (let i = 0; i < input.length; i++) {
-    const c = input[i];
-    if (c === '"' && input[i - 1] !== '\\') {
-      inString = !inString; // toggle string mode
-    }
-    if (!inString) {
-      if (c === '[' || c === '{' || c === '(') depth++;
-      if (c === ']' || c === '}' || c === ')') depth--;
-      if (c === ',' && depth === 0) {
-        result.push(curr.trim());
-        curr = '';
-        continue;
+    const signature = problem.functionSignature;
+    const returnType = signature.substring(0, signature.indexOf(problem.functionName)).trim();
+    const paramListStr = signature.substring(signature.indexOf('(') + 1, signature.lastIndexOf(')'));
+    const paramPairs = paramListStr.split(',').map(param => {
+      const parts = param.trim().split(/\s+/);
+      return {
+        type: parts.slice(0, -1).join(' '),
+        name: parts[parts.length - 1]
+      };
+    });
+
+    const splitInputs = (() => {
+      const result = [];
+      let curr = '', depth = 0, inString = false;
+      for (let i = 0; i < input.length; i++) {
+        const c = input[i];
+        if (c === '"' && input[i - 1] !== '\\') {
+          inString = !inString;
+        }
+        if (!inString) {
+          if (c === '[' || c === '{' || c === '(') depth++;
+          if (c === ']' || c === '}' || c === ')') depth--;
+          if (c === ',' && depth === 0) {
+            result.push(curr.trim()); curr = ''; continue;
+          }
+        }
+        curr += c;
       }
-    }
-    curr += c;
-  }
-  if (curr.trim().length > 0) result.push(curr.trim());
-  // STRIP variable names like 'nums = [2,7,11,15]'
-  return result.map(x => {
-    const eqIdx = x.indexOf('=');
-    if (eqIdx !== -1) return x.slice(eqIdx + 1).trim();
-    return x.trim();
-  });
-})();
-        
-    
-        let inputParsingCode = ``;
-        paramPairs.forEach((param, index) => {
-            const arg = splitInputs[index];
-            if (param.type.includes("vector")) {
-                if (param.type.includes("string")) {
-                    // Handle vector<string> specially
-                    inputParsingCode += `
-        string ${param.name}Str = ${JSON.stringify(arg)};
-        ${param.name}Str.erase(remove(${param.name}Str.begin(), ${param.name}Str.end(), '['), ${param.name}Str.end());
-        ${param.name}Str.erase(remove(${param.name}Str.begin(), ${param.name}Str.end(), ']'), ${param.name}Str.end());
-        vector<string> ${param.name};
-        string temp_${param.name};
-        stringstream ss_${param.name}(${param.name}Str);
-        
-        // Parse the comma-separated string values
-        while (ss_${param.name}.good()) {
-            string substr;
-            getline(ss_${param.name}, substr, ',');
-            
-            // Clean up the string - remove quotes and whitespace
-            substr.erase(remove(substr.begin(), substr.end(), '"'), substr.end());
-            substr.erase(remove(substr.begin(), substr.end(), ' '), substr.end());
-            
-            if (!substr.empty()) {
-                ${param.name}.push_back(substr);
-            }
-        }`;
-                } else {
-                    // Default vector<int> handling
-                    inputParsingCode += `
-        string ${param.name}Str = ${JSON.stringify(arg)};
-        ${param.name}Str.erase(remove(${param.name}Str.begin(), ${param.name}Str.end(), '['), ${param.name}Str.end());
-        ${param.name}Str.erase(remove(${param.name}Str.begin(), ${param.name}Str.end(), ']'), ${param.name}Str.end());
-        stringstream ss_${param.name}(${param.name}Str);
-        vector<int> ${param.name};
-        int temp_${param.name};
-        while (ss_${param.name} >> temp_${param.name}) {
-            ${param.name}.push_back(temp_${param.name});
-            if (ss_${param.name}.peek() == ',') ss_${param.name}.ignore();
-        }`;
-                }
-            }
-            else if (param.type === 'int' || param.type === 'double') {
-                inputParsingCode += `
-        ${param.type} ${param.name} = ${arg};`;
-            }
-            else if (param.type === 'string') {
-              // Strip outer quotes if present (e.g., from "babad")
-              let cleaned = arg.trim();
-              if (cleaned.startsWith('"') && cleaned.endsWith('"')) {
-                cleaned = cleaned.slice(1, -1);
-              }
-              inputParsingCode += `
-              string ${param.name} = "${cleaned.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}";`;
-            }
-            
-            else {
-                inputParsingCode += `
-        // Unrecognized type for input: ${param.type} ${param.name}`;
-            }
-        });
-    
-        const mainCallArgs = paramPairs.map(p => p.name).join(', ');
-        let printCode = '';
-        if (returnType === 'vector<int>') {
-            printCode = `
-    cout << "[";
-    for (size_t i = 0; i < res.size(); ++i) {
-        cout << res[i];
-        if (i != res.size() - 1) cout << ",";
-    }
-    cout << "]";`;
-        } else if (returnType === 'bool') {
-            
-            printCode = `cout << (res ? "true" : "false");`;
-        } else if (returnType === 'string') {
-          printCode = `cout << '"' << res << '"';`;
-        } else {
-            // Default for int, double, float, etc.
-            printCode = `cout << res;`;
-        }
+      if (curr.trim().length > 0) result.push(curr.trim());
+      return result.map(x => {
+        const eqIdx = x.indexOf('=');
+        return eqIdx !== -1 ? x.slice(eqIdx + 1).trim() : x.trim();
+      });
+    })();
 
-        const mainCode = `
-        int main() {
-            ${inputParsingCode}
-
-            auto res = ${problem.functionName}(${mainCallArgs});
-            ${printCode}
-            cout << endl;
-            return 0;
+    let inputParsingCode = ``;
+    paramPairs.forEach((param, index) => {
+      const arg = splitInputs[index];
+      if (param.type.includes("vector")) {
+        inputParsingCode += `
+string ${param.name}Str = ${JSON.stringify(arg)};
+${param.name}Str.erase(remove(${param.name}Str.begin(), ${param.name}Str.end(), '['), ${param.name}Str.end());
+${param.name}Str.erase(remove(${param.name}Str.begin(), ${param.name}Str.end(), ']'), ${param.name}Str.end());
+stringstream ss_${param.name}(${param.name}Str);
+vector<int> ${param.name};
+int temp_${param.name};
+while (ss_${param.name} >> temp_${param.name}) {
+    ${param.name}.push_back(temp_${param.name});
+    if (ss_${param.name}.peek() == ',') ss_${param.name}.ignore();
+}`;
+      } else if (param.type === 'int' || param.type === 'double') {
+        inputParsingCode += `\n${param.type} ${param.name} = ${arg};`;
+      } else if (param.type === 'string') {
+        let cleaned = arg.trim();
+        if (cleaned.startsWith('"') && cleaned.endsWith('"')) {
+          cleaned = cleaned.slice(1, -1);
         }
-        `;
-        console.log("==== CPP FINAL FULL CODE ====");
-        console.log(`${includes}\n${functionCode}\n${mainCode}`);
-        console.log("==============================");
-    
-        return `${includes}\n${functionCode}\n${mainCode}`;
+        inputParsingCode += `\nstring ${param.name} = "${cleaned.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}";`;
+      }
+    });
+
+    const mainCallArgs = paramPairs.map(p => p.name).join(', ');
+    let printCode = '';
+    if (returnType === 'vector<int>') {
+      printCode = `
+cout << "[";
+for (size_t i = 0; i < res.size(); ++i) {
+    cout << res[i];
+    if (i != res.size() - 1) cout << ",";
+}
+cout << "]";`;
+    } else if (returnType === 'bool') {
+      printCode = `cout << (res ? "true" : "false");`;
+    } else if (returnType === 'string') {
+      printCode = `cout << '"' << res << '"';`;
+    } else {
+      printCode = `cout << res;`;
+    }
+
+    const mainCode = `
+int main() {
+    ${inputParsingCode}
+    auto res = ${problem.functionName}(${mainCallArgs});
+    ${printCode}
+    cout << endl;
+    return 0;
+}
+`;
+
+    console.log("==== CPP FINAL FULL CODE ====");
+    console.log(`${includes}\n${functionCode}\n${mainCode}`);
+    console.log("==============================");
+
+    return `${includes}\n${functionCode}\n${mainCode}`;
   }
 }
 
@@ -266,16 +225,12 @@ async function executeUserCode({ problem, testCases, code, language }) {
       const execRes = await axios.post('http://localhost:5000/api/execute', {
         language,
         code: fullCode,
-        input: testCaseInput // still sent for stdin compatibility
+        input: testCaseInput // for stdin languages
       });
 
-      const raw = execRes.data.stdout;
+      const raw = execRes.data.stdout || '';
       const err = execRes.data.error || '';
       const time = Date.now() - start;
-
-      console.log("-----------------------------------------------");
-      console.log("RAW", raw);
-      console.log("-----------------------------------------------");
 
       const actual = normalizeOutput(raw);
       const expected = normalizeOutput(testCaseOutput);
@@ -287,7 +242,6 @@ async function executeUserCode({ problem, testCases, code, language }) {
 
       console.log("-----------------------------------------------");
       console.log("OUTPUT", result.output);
-      console.log("-----------------------------------------------");
       console.log("EXPECTED", expected);
       console.log("ACTUAL", actual);
       console.log("RESULT", result.passed);
@@ -305,6 +259,5 @@ async function executeUserCode({ problem, testCases, code, language }) {
 
   return results;
 }
-
 
 module.exports = { executeUserCode };

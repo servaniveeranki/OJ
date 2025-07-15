@@ -6,7 +6,7 @@ import axios from '../api/axios';
 
 // Code editor components
 import MonacoEditor from '@monaco-editor/react';
-import { FaPlay, FaCheck, FaSave, FaUndo, FaRedo, FaExpandAlt, FaCompressAlt, FaTrophy, FaClock, FaCode } from 'react-icons/fa';
+import { FaPlay, FaCheck, FaSave, FaUndo, FaRedo, FaExpandAlt, FaCompressAlt, FaTrophy, FaClock, FaCode, FaRobot, FaLightbulb, FaBrain, FaExclamationTriangle } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 
 const ProblemDetail = () => {
@@ -29,6 +29,10 @@ const ProblemDetail = () => {
   const [customInput, setCustomInput] = useState('');
   const [customOutput, setCustomOutput] = useState(null);
   const [runningCustom, setRunningCustom] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiAnalysis, setAiAnalysis] = useState(null);
+  const [errorAnalysis, setErrorAnalysis] = useState(null);
+  const [errorAnalysisLoading, setErrorAnalysisLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('testcases');
   const [activeTestCase, setActiveTestCase] = useState(0);
   const [consoleOutput, setConsoleOutput] = useState('');
@@ -184,12 +188,17 @@ const ProblemDetail = () => {
             // Don't show error to user as this is non-critical
           }
         }
+        
+        // Request AI analysis for accepted solution
+        requestAiAnalysis(true);
       } else if (response.data.status === 'Compilation Error') {
         toast.error('❌ Compilation error in your solution!');
       } else if (response.data.status === 'Runtime Error') {
         toast.error('❌ Runtime error in your solution!');
       } else {
         toast.warning('⚠ Solution not accepted. Some test cases failed.');
+        // Request AI analysis for failed solution
+        requestAiAnalysis(false);
       }
     } catch (err) {
       setError('Failed to submit solution');
@@ -197,6 +206,69 @@ const ProblemDetail = () => {
       console.error(err);
     } finally {
       setSubmitting(false);
+    }
+  };
+  
+  // Function to request AI analysis of code
+  const requestAiAnalysis = async (passed) => {
+    if (!code || !language || !problem?._id) return;
+    
+    setAiLoading(true);
+    setAiAnalysis(null);
+    
+    try {
+      const response = await axios.post('/api/execute/analyze', {
+        code,
+        language,
+        problemId: problem._id,
+        passed
+      });
+      
+      setAiAnalysis(response.data);
+      
+      // Automatically switch to AI tab if there are suggestions
+      if (response.data?.suggestions) {
+        setActiveTab('ai');
+        toast.info('🤖 AI analysis complete! Check the AI tab for suggestions.');
+      }
+    } catch (err) {
+      console.error('Failed to get AI analysis:', err);
+      toast.error('AI analysis failed: ' + (err.response?.data?.message || err.message));
+    } finally {
+      setAiLoading(false);
+    }
+  };
+  
+  // Function to apply AI optimized code
+  const applyOptimizedCode = () => {
+    if (aiAnalysis?.suggestions?.optimizedCode) {
+      setCode(aiAnalysis.suggestions.optimizedCode);
+      toast.success('✅ Applied AI optimized code!');
+    }
+  };
+  
+  // Function to request AI analysis of code errors
+  const requestErrorAnalysis = async (code, language, errorMessage, testCase) => {
+    if (!code || !language || !errorMessage) return;
+    
+    setErrorAnalysisLoading(true);
+    setErrorAnalysis(null);
+    
+    try {
+      const response = await axios.post('/api/execute/analyze-error', {
+        code,
+        language,
+        error: errorMessage,
+        testCase
+      });
+      
+      setErrorAnalysis(response.data);
+      toast.info('🔍 AI has analyzed your error!');
+    } catch (err) {
+      console.error('Failed to get error analysis:', err);
+      toast.error('Error analysis failed: ' + (err.response?.data?.message || err.message));
+    } finally {
+      setErrorAnalysisLoading(false);
     }
   };
 
@@ -221,6 +293,12 @@ const ProblemDetail = () => {
           testCases: visibleTestCases // Only send visible test cases
         }
       });
+      
+      // Check if the response contains AI analysis for errors
+      if (response.data.aiAnalysis) {
+        setErrorAnalysis(response.data.aiAnalysis);
+        toast.info('🔍 AI has analyzed your error!');
+      }
   
       const testResults = response.data.results || [];
   
@@ -257,12 +335,35 @@ const ProblemDetail = () => {
         toast.success(`✅ All ${passedCount} test cases passed!`);
       } else {
         toast.warning(`⚠ ${passedCount}/${visibleTestCases.length} test cases passed.`);
+        
+        // If any test case failed and no AI analysis was provided, request error analysis for the first failing test case
+        if (!response.data.aiAnalysis) {
+          const failingTest = testResults.find(result => !result.passed);
+          if (failingTest) {
+            const errorMessage = failingTest.error || 'Test case failed';
+            toast.info('🔍 Analyzing error...');
+            requestErrorAnalysis(code, language, errorMessage, failingTest.input);
+          }
+        }
+        
+        // Keep the test cases tab active to show the error analysis
+        setActiveTab('testcases');
       }
+      
+      // Request AI analysis after running the code
+      requestAiAnalysis(finalStatus === 'Accepted');
   
     } catch (err) {
       setError('Failed to run code');
       toast.error('Failed to run code: ' + (err.response?.data?.message || err.message));
       console.error(err);
+      
+      // Try to analyze the error if possible
+      if (code && language) {
+        const errorMessage = err.response?.data?.message || err.message;
+        toast.info('🔍 Analyzing error...');
+        requestErrorAnalysis(code, language, errorMessage, '');
+      }
     } finally {
       setRunning(false);
     }
@@ -275,42 +376,68 @@ const handleRunCustomInput = async () => {
   setCustomOutput(null);
   toast.info('🔄 Running code with custom input...');
 
-
-    try {
-      const response = await axios.post('/api/problems/run-custom', {
-        code,
-        language,
-        input: customInput,
-        problemId: id // Include the problem ID from URL params
-      });
-      
-      setCustomOutput({
-        status: response.data.status,
-        output: response.data.output,
-        error: response.data.error,
-        executionTime: response.data.executionTime
-      });
-      
-      if (response.data.status === 'Success') {
-        toast.success('✅ Code executed successfully!');
-      } else if (response.data.status === 'Compilation Error') {
-        toast.error('❌ Compilation error!');
-      } else if (response.data.status === 'Runtime Error') {
-        toast.error('❌ Runtime error!');
-      } else if (response.data.error) {
-        toast.error(`❌ Execution error: ${response.data.error}`);
-      }
-    } catch (err) {
-      setCustomOutput({
-        status: 'Error',
-        error: err.response?.data?.message || 'Failed to run code with custom input'
-      });
-      toast.error('Failed to run code: ' + (err.response?.data?.message || err.message));
-      console.error(err);
-    } finally {
-      setRunningCustom(false);
+  try {
+    const response = await axios.post('/api/problems/run-custom', {
+      code,
+      language,
+      input: customInput,
+      problemId: id // Include the problem ID from URL params
+    });
+    
+    // Check if the response contains AI analysis for errors
+    if (response.data.aiAnalysis) {
+      setErrorAnalysis(response.data.aiAnalysis);
+      toast.info('🔍 AI has analyzed your error!');
     }
-  };
+    
+    setCustomOutput({
+      status: response.data.status,
+      output: response.data.output,
+      error: response.data.error,
+      executionTime: response.data.executionTime
+    });
+    
+    if (response.data.status === 'Success') {
+      toast.success('✅ Code executed successfully!');
+    } else if (response.data.status === 'Compilation Error') {
+      toast.error('❌ Compilation error!');
+      // Switch to the custom tab to show the error analysis
+      setActiveTab('custom');
+    } else if (response.data.status === 'Runtime Error') {
+      toast.error('❌ Runtime error!');
+      // Switch to the custom tab to show the error analysis
+      setActiveTab('custom');
+    } else if (response.data.error) {
+      toast.error(`❌ Execution error: ${response.data.error}`);
+      // Switch to the custom tab to show the error analysis
+      setActiveTab('custom');
+    }
+    
+    // If there was an error and no AI analysis was provided, request it manually
+    if (response.data.status !== 'Success' && !response.data.aiAnalysis) {
+      const errorMessage = response.data.error || response.data.status || 'Execution failed';
+      requestErrorAnalysis(code, language, errorMessage, customInput);
+    }
+  } catch (err) {
+    const errorMessage = err.response?.data?.message || err.message;
+    setCustomOutput({
+      status: 'Error',
+      error: errorMessage,
+      output: null,
+      executionTime: 0
+    });
+    toast.error('Failed to run code: ' + errorMessage);
+    console.error(err);
+    
+    // Request error analysis for the API error
+    if (code && language) {
+      toast.info('🔍 Analyzing error...');
+      requestErrorAnalysis(code, language, errorMessage, customInput);
+    }
+  } finally {
+    setRunningCustom(false);
+  }
+};
 
   if (loading) {
     return (
@@ -610,12 +737,23 @@ const handleRunCustomInput = async () => {
                   >
                     Custom Input
                   </button>
+                  <button
+                    onClick={() => setActiveTab('ai')}
+                    className={`py-2 px-4 text-sm font-medium ${activeTab === 'ai' 
+                      ? 'border-b-2 border-indigo-500 text-indigo-600' 
+                      : 'text-gray-500 hover:text-gray-700'}`}
+                  >
+                    <FaRobot className="mr-1" /> AI Analysis
+                    {aiLoading && (
+                      <span className="ml-2 inline-block h-3 w-3 rounded-full bg-indigo-500 animate-pulse"></span>
+                    )}
+                  </button>
                 </nav>
               </div>
               
               {/* Tab Content */}
               <div className="mt-4">
-                {activeTab === 'testcases' ? (
+                {activeTab === 'testcases' && (
                   /* Test Cases Tab */
                   <div>
                     <div className="flex justify-end mb-4">
@@ -668,47 +806,47 @@ const handleRunCustomInput = async () => {
 
                     {/* Test Case Details */}
                     {problem.testCases.filter(tc => !tc.isHidden).length > 0 && (
-  <div className="mb-4">
-    <div className="grid grid-cols-2 gap-4">
-      <div>
-        <h4 className="text-sm font-medium text-gray-500 mb-1">Input</h4>
-        <div className="bg-gray-800 text-green-400 p-3 rounded-md font-mono text-sm overflow-x-auto">
-          {(() => {
-            const testCase = problem.testCases.filter(tc => !tc.isHidden)[activeTestCase];
-            if (!testCase) return 'No input';
-            try {
-              // Try to parse if it's a JSON string, otherwise display as is
-              const input = typeof testCase.input === 'string' 
-                ? JSON.parse(testCase.input) 
-                : testCase.input;
-              return JSON.stringify(input, null, 2);
-            } catch (e) {
-              return String(testCase.input);
-            }
-          })()}
-        </div>
-      </div>
-      <div>
-        <h4 className="text-sm font-medium text-gray-500 mb-1">Expected Output</h4>
-        <div className="bg-gray-800 text-green-400 p-3 rounded-md font-mono text-sm overflow-x-auto">
-          {(() => {
-            const testCase = problem.testCases.filter(tc => !tc.isHidden)[activeTestCase];
-            if (!testCase) return 'No output';
-            try {
-              // Try to parse if it's a JSON string, otherwise display as is
-              const output = typeof testCase.output === 'string' 
-                ? JSON.parse(testCase.output) 
-                : testCase.output;
-              return JSON.stringify(output, null, 2);
-            } catch (e) {
-              return String(testCase.output);
-            }
-          })()}
-        </div>
-      </div>
-    </div>
-  </div>
-)}
+                      <div className="mb-4">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <h4 className="text-sm font-medium text-gray-500 mb-1">Input</h4>
+                            <div className="bg-gray-800 text-green-400 p-3 rounded-md font-mono text-sm overflow-x-auto">
+                              {(() => {
+                                const testCase = problem.testCases.filter(tc => !tc.isHidden)[activeTestCase];
+                                if (!testCase) return 'No input';
+                                try {
+                                  // Try to parse if it's a JSON string, otherwise display as is
+                                  const input = typeof testCase.input === 'string' 
+                                    ? JSON.parse(testCase.input) 
+                                    : testCase.input;
+                                  return JSON.stringify(input, null, 2);
+                                } catch (e) {
+                                  return String(testCase.input);
+                                }
+                              })()}
+                            </div>
+                          </div>
+                          <div>
+                            <h4 className="text-sm font-medium text-gray-500 mb-1">Expected Output</h4>
+                            <div className="bg-gray-800 text-green-400 p-3 rounded-md font-mono text-sm overflow-x-auto">
+                              {(() => {
+                                const testCase = problem.testCases.filter(tc => !tc.isHidden)[activeTestCase];
+                                if (!testCase) return 'No output';
+                                try {
+                                  // Try to parse if it's a JSON string, otherwise display as is
+                                  const output = typeof testCase.output === 'string' 
+                                    ? JSON.parse(testCase.output) 
+                                    : testCase.output;
+                                  return JSON.stringify(output, null, 2);
+                                } catch (e) {
+                                  return String(testCase.output);
+                                }
+                              })()}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
 
                     {/* Console Output */}
                     <div className="mt-4">
@@ -727,6 +865,68 @@ const handleRunCustomInput = async () => {
                         </div>
                       )}
                     </div>
+                    
+                    {/* Error Analysis */}
+                    {errorAnalysis && (
+                      <div className="mt-6 border border-red-200 rounded-lg p-4 bg-red-50">
+                        <div className="flex items-center mb-3">
+                          <FaExclamationTriangle className="text-red-500 mr-2" />
+                          <h3 className="text-lg font-bold text-gray-800">Error Analysis</h3>
+                        </div>
+                        
+                        <div className="mb-4">
+                          <h4 className="text-md font-semibold text-red-700 mb-1">Error Location</h4>
+                          <p className="text-gray-700">{errorAnalysis.errorLocation}</p>
+                        </div>
+                        
+                        <div className="mb-4">
+                          <h4 className="text-md font-semibold text-red-700 mb-1">What Caused the Error</h4>
+                          <p className="text-gray-700">{errorAnalysis.errorCause}</p>
+                        </div>
+                        
+                        <div className="mb-4">
+                          <h4 className="text-md font-semibold text-green-700 mb-1">How to Fix It</h4>
+                          <p className="text-gray-700">{errorAnalysis.fixSuggestion}</p>
+                        </div>
+                        
+                        {errorAnalysis.codeSnippet && (
+                          <div className="mb-4">
+                            <h4 className="text-md font-semibold text-blue-700 mb-1 flex justify-between">
+                              <span>Corrected Code</span>
+                              <button 
+                                onClick={() => setCode(errorAnalysis.codeSnippet)}
+                                className="text-sm bg-blue-600 hover:bg-blue-700 text-white py-1 px-3 rounded flex items-center"
+                              >
+                                <FaCheck className="mr-1" /> Apply Fix
+                              </button>
+                            </h4>
+                            <div className="bg-gray-800 rounded-md overflow-hidden">
+                              <pre className="p-4 text-green-400 font-mono text-sm overflow-x-auto">
+                                {errorAnalysis.codeSnippet}
+                              </pre>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {errorAnalysis.preventionTips && errorAnalysis.preventionTips.length > 0 && (
+                          <div>
+                            <h4 className="text-md font-semibold text-purple-700 mb-1">Tips to Avoid Similar Errors</h4>
+                            <ul className="list-disc pl-5 space-y-1">
+                              {errorAnalysis.preventionTips.map((tip, index) => (
+                                <li key={index} className="text-gray-700">{tip}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        
+                        {errorAnalysisLoading && (
+                          <div className="flex justify-center items-center py-4">
+                            <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-red-500"></div>
+                            <span className="ml-2 text-gray-600">Analyzing error...</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     {/* Results Summary */}
                     {result && (
@@ -757,7 +957,9 @@ const handleRunCustomInput = async () => {
                       </div>
                     )}
                   </div>
-                ) : (
+                )}
+                
+                {activeTab === 'custom' && (
                   /* Custom Input Tab */
                   <div>
                     <div className="mb-4">
@@ -819,6 +1021,228 @@ const handleRunCustomInput = async () => {
                             </pre>
                           </div>
                         )}
+                      </div>
+                    )}
+                  </div>
+                )}
+                
+                {activeTab === 'custom' && (
+                  <div>
+                    <div className="mb-4">
+                      <textarea
+                        value={customInput}
+                        onChange={(e) => setCustomInput(e.target.value)}
+                        placeholder="Enter your custom input here..."
+                        className="w-full h-32 p-3 border border-gray-300 rounded-md font-mono text-sm"
+                      ></textarea>
+                    </div>
+                    
+                    <div className="flex justify-end mb-4">
+                      <button
+                        onClick={handleRunCustomInput}
+                        disabled={runningCustom}
+                        className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 flex items-center"
+                      >
+                        <FaPlay className="mr-2" size={14} />
+                        {runningCustom ? 'Running...' : 'Run with Custom Input'}
+                      </button>
+                    </div>
+                    
+                    {customOutput && (
+                      <div className="mt-4">
+                        <h3 className={`text-lg font-semibold ${
+                          customOutput.status === 'Success' ? 'text-green-700' :
+                          customOutput.status === 'Compilation Error' ? 'text-red-700' :
+                          'text-yellow-700'
+                        }`}>
+                          {customOutput.status}
+                        </h3>
+                        
+                        {customOutput.executionTime > 0 && (
+                          <p className="text-sm text-gray-600 mt-1">
+                            Execution Time: {customOutput.executionTime.toFixed(2)} ms
+                          </p>
+                        )}
+                        
+                        {customOutput.error && (
+                          <div className="mt-3">
+                            <h4 className="font-medium text-red-700 mb-1">Error:</h4>
+                            <pre className="bg-red-50 p-2 rounded text-sm font-mono whitespace-pre-wrap">
+                              {customOutput.error}
+                            </pre>
+                          </div>
+                        )}
+                        
+                        {customOutput.output && (
+                          <div className="mt-3">
+                            <h4 className="font-medium text-gray-700 mb-1">Output:</h4>
+                            <pre className="bg-gray-50 p-2 rounded text-sm font-mono whitespace-pre-wrap">
+                              {customOutput.output}
+                            </pre>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    
+                    {/* Error Analysis for Custom Input */}
+                    {errorAnalysis && customOutput && customOutput.status !== 'Success' && (
+                      <div className="mt-6 border border-red-200 rounded-lg p-4 bg-red-50">
+                        <div className="flex items-center mb-3">
+                          <FaExclamationTriangle className="text-red-500 mr-2" />
+                          <h3 className="text-lg font-bold text-gray-800">Error Analysis</h3>
+                        </div>
+                        
+                        <div className="mb-4">
+                          <h4 className="text-md font-semibold text-red-700 mb-1">Error Location</h4>
+                          <p className="text-gray-700">{errorAnalysis.errorLocation}</p>
+                        </div>
+                        
+                        <div className="mb-4">
+                          <h4 className="text-md font-semibold text-red-700 mb-1">What Caused the Error</h4>
+                          <p className="text-gray-700">{errorAnalysis.errorCause}</p>
+                        </div>
+                        
+                        <div className="mb-4">
+                          <h4 className="text-md font-semibold text-green-700 mb-1">How to Fix It</h4>
+                          <p className="text-gray-700">{errorAnalysis.fixSuggestion}</p>
+                        </div>
+                        
+                        {errorAnalysis.codeSnippet && (
+                          <div className="mb-4">
+                            <h4 className="text-md font-semibold text-blue-700 mb-1 flex justify-between">
+                              <span>Corrected Code</span>
+                              <button 
+                                onClick={() => setCode(errorAnalysis.codeSnippet)}
+                                className="text-sm bg-blue-600 hover:bg-blue-700 text-white py-1 px-3 rounded flex items-center"
+                              >
+                                <FaCheck className="mr-1" /> Apply Fix
+                              </button>
+                            </h4>
+                            <div className="bg-gray-800 rounded-md overflow-hidden">
+                              <pre className="p-4 text-green-400 font-mono text-sm overflow-x-auto">
+                                {errorAnalysis.codeSnippet}
+                              </pre>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {errorAnalysis.preventionTips && errorAnalysis.preventionTips.length > 0 && (
+                          <div>
+                            <h4 className="text-md font-semibold text-purple-700 mb-1">Tips to Avoid Similar Errors</h4>
+                            <ul className="list-disc pl-5 space-y-1">
+                              {errorAnalysis.preventionTips.map((tip, index) => (
+                                <li key={index} className="text-gray-700">{tip}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        
+                        {errorAnalysisLoading && (
+                          <div className="flex justify-center items-center py-4">
+                            <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-red-500"></div>
+                            <span className="ml-2 text-gray-600">Analyzing error...</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+                
+                {activeTab === 'ai' && (
+                  <div>
+                    {aiLoading ? (
+                      <div className="flex flex-col items-center justify-center py-8">
+                        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500 mb-4"></div>
+                        <p className="text-gray-600">AI is analyzing your code...</p>
+                      </div>
+                    ) : aiAnalysis ? (
+                      <div>
+                        <div className="mb-6">
+                          <h3 className="text-lg font-bold text-gray-800 mb-2 flex items-center">
+                            <FaLightbulb className="text-yellow-500 mr-2" /> 
+                            Code Analysis
+                          </h3>
+                          <div className="bg-gray-50 p-4 rounded">
+                            <p className="text-gray-700">{aiAnalysis.suggestions.analysis}</p>
+                          </div>
+                        </div>
+                        
+                        <div className="mb-6">
+                          <h3 className="text-lg font-bold text-gray-800 mb-2">Complexity</h3>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="bg-blue-50 p-3 rounded">
+                              <p className="text-sm text-gray-600">Your Time Complexity</p>
+                              <p className="text-lg font-mono font-bold text-blue-700">{aiAnalysis.complexity.timeComplexity}</p>
+                            </div>
+                            <div className="bg-green-50 p-3 rounded">
+                              <p className="text-sm text-gray-600">Your Space Complexity</p>
+                              <p className="text-lg font-mono font-bold text-green-700">{aiAnalysis.complexity.spaceComplexity}</p>
+                            </div>
+                            {aiAnalysis.suggestions.optimizedTimeComplexity && (
+                              <div className="bg-purple-50 p-3 rounded">
+                                <p className="text-sm text-gray-600">Optimized Time</p>
+                                <p className="text-lg font-mono font-bold text-purple-700">{aiAnalysis.suggestions.optimizedTimeComplexity}</p>
+                              </div>
+                            )}
+                            {aiAnalysis.suggestions.optimizedSpaceComplexity && (
+                              <div className="bg-teal-50 p-3 rounded">
+                                <p className="text-sm text-gray-600">Optimized Space</p>
+                                <p className="text-lg font-mono font-bold text-teal-700">{aiAnalysis.suggestions.optimizedSpaceComplexity}</p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        
+                        {aiAnalysis.suggestions.suggestions && aiAnalysis.suggestions.suggestions.length > 0 && (
+                          <div className="mb-6">
+                            <h3 className="text-lg font-bold text-gray-800 mb-2">Suggestions</h3>
+                            <ul className="list-disc pl-5 space-y-2">
+                              {aiAnalysis.suggestions.suggestions.map((suggestion, index) => (
+                                <li key={index} className="text-gray-700">{suggestion}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        
+                        {aiAnalysis.suggestions.optimizedCode && (
+                          <div className="mb-6">
+                            <div className="flex justify-between items-center mb-2">
+                              <h3 className="text-lg font-bold text-gray-800">Optimized Code</h3>
+                              <button
+                                onClick={applyOptimizedCode}
+                                className="px-3 py-1 bg-green-600 text-white text-sm rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 flex items-center"
+                              >
+                                <FaCheck className="mr-1" />
+                                Apply
+                              </button>
+                            </div>
+                            <div className="bg-gray-800 rounded-md overflow-hidden">
+                              <pre className="p-4 text-green-400 font-mono text-sm overflow-x-auto">
+                                {aiAnalysis.suggestions.optimizedCode}
+                              </pre>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {aiAnalysis.suggestions.improvements && (
+                          <div className="mb-6">
+                            <h3 className="text-lg font-bold text-gray-800 mb-2">Improvements</h3>
+                            <div className="bg-gray-50 p-4 rounded">
+                              <p className="text-gray-700 whitespace-pre-wrap">{aiAnalysis.suggestions.improvements}</p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center py-8">
+                        <p className="text-gray-600 mb-4">No AI analysis available yet. Run your code to get analysis.</p>
+                        <button
+                          onClick={() => requestAiAnalysis(false)}
+                          className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 flex items-center"
+                        >
+                          <FaBrain className="mr-2" />
+                          Analyze Current Code
+                        </button>
                       </div>
                     )}
                   </div>
