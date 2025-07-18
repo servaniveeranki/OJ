@@ -171,8 +171,11 @@ export const AuthProvider = ({ children }) => {
     setError(null);
   };
   
+  const token = localStorage.getItem('token');
+
   const value = {
     user,
+    token,
     loading,
     error,
     register,

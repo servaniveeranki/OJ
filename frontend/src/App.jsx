@@ -13,6 +13,8 @@ import Leaderboard from './components/Leaderboard';
 import Homepage from './components/Homepage';
 import LandingPage from './components/LandingPage';
 import ProtectedRoute from './components/ProtectedRoute';
+import AdminRoute from './components/AdminRoute';
+import AdminDashboard from './components/AdminDashboard';
 import './index.css';
 
 function App() {
@@ -73,6 +75,15 @@ function App() {
           />
           <Route path="/" element={<Homepage />} />
           <Route path="/dashboard" element={<LandingPage />} />
+          <Route 
+            path="/admin" 
+            element={
+              <AdminRoute>
+                <AdminDashboard />
+              </AdminRoute>
+            } 
+          />
+          <Route path="/unauthorized" element={<div className="p-8 text-center"><h1 className="text-2xl font-bold">Unauthorized Access</h1><p className="mt-4">You don't have permission to access this page.</p></div>} />
         </Routes>
       </Router>
     </AuthProvider>

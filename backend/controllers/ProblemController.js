@@ -336,10 +336,39 @@ async function executeCustomInput(req, res) {
 }
 
 
+// PUT /api/problems/:id
+async function updateProblem(req, res) {
+  try {
+    const problem = await Problem.findByIdAndUpdate(
+      req.params.id, 
+      req.body, 
+      { new: true, runValidators: true }
+    );
+    
+    if (!problem) return res.status(404).json({ error: 'Problem not found' });
+    res.json(problem);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+}
+
+// DELETE /api/problems/:id
+async function deleteProblem(req, res) {
+  try {
+    const problem = await Problem.findByIdAndDelete(req.params.id);
+    if (!problem) return res.status(404).json({ error: 'Problem not found' });
+    res.json({ message: 'Problem deleted successfully' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
 module.exports = {
   createProblem,
   getAllProblems,
   getProblemById,
+  updateProblem,
+  deleteProblem,
   submitCode,
   runTest,
   executeCustomInput
