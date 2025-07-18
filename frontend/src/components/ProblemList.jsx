@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import axios from '../api/axios';
 import Header from './Header';
-import { FaSearch, FaFilter, FaSortAmountDown, FaSortAmountUp } from 'react-icons/fa';
+import { FaSearch, FaFilter, FaSortAmountDown, FaSortAmountUp, FaCode, FaChevronDown } from 'react-icons/fa';
 
 const ProblemList = () => {
   const [problems, setProblems] = useState([]);
@@ -80,11 +80,11 @@ const ProblemList = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black text-white">
         <Header />
         <div className="container mx-auto px-4 py-8">
           <div className="flex justify-center items-center h-64">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
           </div>
         </div>
       </div>
@@ -93,10 +93,10 @@ const ProblemList = () => {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black text-white">
         <Header />
         <div className="container mx-auto px-4 py-8">
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+          <div className="bg-red-900/50 backdrop-blur-sm border border-red-700 text-red-100 px-4 py-3 rounded-lg">
             {error}
           </div>
         </div>
@@ -105,12 +105,21 @@ const ProblemList = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black text-white">
       <Header />
       
       <div className="container mx-auto px-4 py-8">
-        <div className="bg-white shadow-md rounded-lg p-6">
-          <h1 className="text-2xl font-bold text-gray-800 mb-6">Coding Problems</h1>
+        {/* Background Elements */}
+        <div className="absolute inset-0 overflow-hidden -z-10">
+          <div className="absolute top-20 left-10 w-64 h-64 bg-blue-500/20 rounded-full filter blur-3xl"></div>
+          <div className="absolute bottom-20 right-10 w-80 h-80 bg-purple-500/20 rounded-full filter blur-3xl"></div>
+        </div>
+        
+        <div className="bg-gray-800/50 backdrop-blur-sm shadow-xl rounded-xl p-6 border border-gray-700">
+          <h1 className="text-3xl font-bold text-white mb-6 flex items-center">
+            <FaCode className="text-blue-500 mr-2" />
+            Coding Problems
+          </h1>
           
           {/* Search and Filter */}
           <div className="mb-6 grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -123,7 +132,7 @@ const ProblemList = () => {
                 placeholder="Search problems..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 w-full border border-gray-300 rounded-md py-2 px-4 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="pl-10 w-full bg-gray-900/50 border border-gray-600 text-white rounded-lg py-2 px-4 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
             </div>
             
@@ -134,7 +143,7 @@ const ProblemList = () => {
               <select
                 value={filterDifficulty}
                 onChange={(e) => setFilterDifficulty(e.target.value)}
-                className="pl-10 w-full border border-gray-300 rounded-md py-2 px-4 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="pl-10 w-full bg-gray-900/50 border border-gray-600 text-white rounded-lg py-2 px-4 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               >
                 <option value="">All Difficulties</option>
                 <option value="Easy">Easy</option>
@@ -150,7 +159,7 @@ const ProblemList = () => {
               <select
                 value={filterCategory}
                 onChange={(e) => setFilterCategory(e.target.value)}
-                className="pl-10 w-full border border-gray-300 rounded-md py-2 px-4 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="pl-10 w-full bg-gray-900/50 border border-gray-600 text-white rounded-lg py-2 px-4 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               >
                 <option value="">All Categories</option>
                 {categories.map((category, index) => (
@@ -161,7 +170,7 @@ const ProblemList = () => {
             
             <button
               onClick={resetFilters}
-              className="bg-gray-200 hover:bg-gray-300 text-gray-700 py-2 px-4 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500"
+              className="bg-gray-700/50 hover:bg-gray-700 text-white py-2 px-4 rounded-lg transition-all border border-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500"
             >
               Reset Filters
             </button>
@@ -169,12 +178,12 @@ const ProblemList = () => {
           
           {/* Problems Table */}
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+            <table className="min-w-full divide-y divide-gray-700">
+              <thead className="bg-gray-800/70">
                 <tr>
                   <th 
                     scope="col" 
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider cursor-pointer"
                     onClick={() => handleSort('title')}
                   >
                     <div className="flex items-center">
@@ -186,7 +195,7 @@ const ProblemList = () => {
                   </th>
                   <th 
                     scope="col" 
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider cursor-pointer"
                     onClick={() => handleSort('difficulty')}
                   >
                     <div className="flex items-center">
@@ -196,42 +205,42 @@ const ProblemList = () => {
                       )}
                     </div>
                   </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
                     Category
                   </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
                     Actions
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="divide-y divide-gray-700">
                 {filteredAndSortedProblems.length === 0 ? (
                   <tr>
-                    <td colSpan="4" className="px-6 py-4 text-center text-gray-500">
+                    <td colSpan="4" className="px-6 py-4 text-center text-gray-300">
                       No problems found matching your criteria
                     </td>
                   </tr>
                 ) : (
                   filteredAndSortedProblems.map((problem) => (
-                    <tr key={problem._id} className="hover:bg-gray-50">
+                    <tr key={problem._id} className="hover:bg-gray-700/50 transition-colors">
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">{problem.title}</div>
+                        <div className="text-sm font-medium text-white">{problem.title}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`px-2 py-1 text-xs font-semibold rounded-full 
-                          ${problem.difficulty === 'Easy' ? 'bg-green-100 text-green-800' : 
-                            problem.difficulty === 'Medium' ? 'bg-yellow-100 text-yellow-800' : 
-                            'bg-red-100 text-red-800'}`}>
+                          ${problem.difficulty === 'Easy' ? 'bg-green-900/60 text-green-300 border border-green-600' : 
+                            problem.difficulty === 'Medium' ? 'bg-yellow-900/60 text-yellow-300 border border-yellow-600' : 
+                            'bg-red-900/60 text-red-300 border border-red-600'}`}>
                           {problem.difficulty}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-500">{problem.category}</div>
+                        <div className="text-sm text-gray-300">{problem.category}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm">
                         <Link 
                           to={`/problems/${problem._id}`} 
-                          className="text-indigo-600 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100 px-3 py-1 rounded-md"
+                          className="text-blue-400 hover:text-blue-300 bg-blue-900/40 hover:bg-blue-800/60 px-4 py-2 rounded-lg transition-colors border border-blue-700/50"
                         >
                           Solve
                         </Link>
@@ -244,19 +253,19 @@ const ProblemList = () => {
           </div>
           
           {/* Stats */}
-          <div className="mt-6 flex justify-between text-sm text-gray-500">
+          <div className="mt-6 flex justify-between text-sm text-gray-300">
             <div>
               Showing {filteredAndSortedProblems.length} of {problems.length} problems
             </div>
             <div>
               <span className="inline-block mr-3">
-                <span className="w-3 h-3 inline-block bg-green-100 rounded-full mr-1"></span> Easy: {problems.filter(p => p.difficulty === 'Easy').length}
+                <span className="w-3 h-3 inline-block bg-green-500 rounded-full mr-1"></span> Easy: {problems.filter(p => p.difficulty === 'Easy').length}
               </span>
               <span className="inline-block mr-3">
-                <span className="w-3 h-3 inline-block bg-yellow-100 rounded-full mr-1"></span> Medium: {problems.filter(p => p.difficulty === 'Medium').length}
+                <span className="w-3 h-3 inline-block bg-yellow-500 rounded-full mr-1"></span> Medium: {problems.filter(p => p.difficulty === 'Medium').length}
               </span>
               <span className="inline-block">
-                <span className="w-3 h-3 inline-block bg-red-100 rounded-full mr-1"></span> Hard: {problems.filter(p => p.difficulty === 'Hard').length}
+                <span className="w-3 h-3 inline-block bg-red-500 rounded-full mr-1"></span> Hard: {problems.filter(p => p.difficulty === 'Hard').length}
               </span>
             </div>
           </div>

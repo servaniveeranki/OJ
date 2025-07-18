@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { FaEnvelope, FaLock, FaSignInAlt, FaExclamationCircle } from 'react-icons/fa';
@@ -9,7 +9,7 @@ const Login = () => {
     password: ''
   });
   const [formErrors, setFormErrors] = useState({});
-  const { login, error, clearError, loading } = useAuth();
+  const { login, error, clearError, loading, user } = useAuth();
   const navigate = useNavigate();
 
   const handleChange = (e) => {
@@ -55,10 +55,19 @@ const Login = () => {
     if (validateForm()) {
       const result = await login(formData);
       if (result.success) {
-        navigate('/');
+        // Use useEffect to handle navigation after login
+        // The user object will be updated in the context after successful login
+        navigate(user?.isAdmin ? '/admin' : '/codezen');
       }
     }
   };
+  
+  // Add an effect to handle navigation when user changes
+  useEffect(() => {
+    if (user) {
+      navigate(user.isAdmin ? '/admin' : '/codezen');
+    }
+  }, [user]);
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">

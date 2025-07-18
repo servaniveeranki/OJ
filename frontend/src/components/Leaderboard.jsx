@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import Header from './Header';
+import { FaTrophy, FaAward, FaMedal, FaCrown } from 'react-icons/fa';
 
 const Leaderboard = () => {
   // Sample leaderboard data - in a real app, this would come from an API
@@ -20,18 +21,24 @@ const Leaderboard = () => {
   const [timeFilter, setTimeFilter] = useState('all-time');
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black text-white">
       <Header />
       
       <div className="container mx-auto px-4 py-8">
+        {/* Background Elements */}
+        <div className="absolute inset-0 overflow-hidden -z-10">
+          <div className="absolute top-20 left-10 w-64 h-64 bg-blue-500/20 rounded-full filter blur-3xl"></div>
+          <div className="absolute bottom-20 right-10 w-80 h-80 bg-purple-500/20 rounded-full filter blur-3xl"></div>
+          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-indigo-500/10 rounded-full filter blur-3xl"></div>
+        </div>
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold text-gray-800">Leaderboard</h1>
+          <h1 className="text-3xl font-bold text-white flex items-center"><FaTrophy className="text-yellow-500 mr-2" /> Leaderboard</h1>
           
           <div>
             <select 
               value={timeFilter}
               onChange={(e) => setTimeFilter(e.target.value)}
-              className="border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="bg-gray-900/50 border border-gray-600 text-white rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             >
               <option value="all-time">All Time</option>
               <option value="monthly">This Month</option>
@@ -42,20 +49,20 @@ const Leaderboard = () => {
         </div>
         
         {/* Leaderboard Table */}
-        <div className="bg-white shadow-md rounded-lg overflow-hidden">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+        <div className="bg-gray-800/50 backdrop-blur-sm border border-gray-700 shadow-xl rounded-xl overflow-hidden">
+          <table className="min-w-full divide-y divide-gray-700">
+            <thead className="bg-gray-800/70">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rank</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Score</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Problems Solved</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contests</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Rank</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">User</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Score</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Problems Solved</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Contests</th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="divide-y divide-gray-700">
               {users.map((user) => (
-                <tr key={user.id} className="hover:bg-gray-50">
+                <tr key={user.id} className="hover:bg-gray-700/50 transition-colors">
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <div className="flex items-center">
                       {user.rank <= 3 ? (
@@ -63,16 +70,16 @@ const Leaderboard = () => {
                           ${user.rank === 1 ? 'text-yellow-500' : 
                             user.rank === 2 ? 'text-gray-400' : 
                             'text-amber-700'}`}>
-                          {user.rank === 1 ? '🥇' : user.rank === 2 ? '🥈' : '🥉'}
+                          {user.rank === 1 ? <FaCrown className="text-yellow-500" /> : user.rank === 2 ? <FaMedal className="text-gray-400" /> : <FaMedal className="text-amber-700" />}
                         </span>
                       ) : null}
                       <span className={user.rank <= 3 ? 'font-bold' : ''}>{user.rank}</span>
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{user.username}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-indigo-600">{user.score}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.problemsSolved}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.contests}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-white">{user.username}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-blue-400">{user.score}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">{user.problemsSolved}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">{user.contests}</td>
                 </tr>
               ))}
             </tbody>

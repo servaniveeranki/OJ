@@ -1,16 +1,33 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { FaCode, FaLaptopCode, FaBrain, FaRocket, FaGraduationCap, FaSignInAlt, FaUserPlus, FaChevronDown, 
          FaTrophy, FaChartBar, FaUsers, FaServer, FaShieldAlt, FaCheckCircle, FaArrowRight, 
-         FaJs, FaPython, FaJava, FaReact, FaTerminal } from 'react-icons/fa';
-import { SiLeetcode, SiHackerrank, SiCodeforces } from 'react-icons/si';
+         FaJs, FaPython, FaJava, FaReact, FaTerminal, FaClock, FaCoffee, FaKeyboard } from 'react-icons/fa';
+import { SiLeetcode, SiHackerrank, SiCodeforces, SiJavascript, SiCplusplus, SiPython, SiTypescript } from 'react-icons/si';
 import { useAuth } from '../context/AuthContext';
+import ParticleBackground from './ParticleBackground';
 import './LandingPage.css';
 
 const HomePage = () => {
   const { user } = useAuth();
   const [isScrolled, setIsScrolled] = useState(false);
+  const [visibleSection, setVisibleSection] = useState('');
+  const [typedText, setTypedText] = useState('');
+  const [counterAnimated, setCounterAnimated] = useState(false);
+  
+  // Refs for sections to observe
+  const featuresRef = useRef(null);
+  const statsRef = useRef(null);
+  const testimonialsRef = useRef(null);
+  
+  // Code examples for typing animation
+  const codeExamples = [
+    'function solve(n) { return n > 0 ? n + solve(n-1) : 0; }',
+    'const binarySearch = (arr, target) => { let left = 0; let right = arr.length - 1; /* ... */ };',
+    'class Solution { public int maxSubArray(int[] nums) { /* ... */ } }'
+  ];
+  const [currentCodeExample, setCurrentCodeExample] = useState(0);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -19,11 +36,53 @@ const HomePage = () => {
       } else {
         setIsScrolled(false);
       }
+      
+      // Check which section is currently visible
+      const scrollPosition = window.scrollY + window.innerHeight / 2;
+      
+      if (featuresRef.current && scrollPosition >= featuresRef.current.offsetTop) {
+        setVisibleSection('features');
+      }
+      
+      if (statsRef.current && scrollPosition >= statsRef.current.offsetTop) {
+        setVisibleSection('stats');
+        if (!counterAnimated) {
+          setCounterAnimated(true);
+        }
+      }
+      
+      if (testimonialsRef.current && scrollPosition >= testimonialsRef.current.offsetTop) {
+        setVisibleSection('testimonials');
+      }
     };
-
+    
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
+  }, [counterAnimated]);
+  
+  // Typing animation effect
+  useEffect(() => {
+    const example = codeExamples[currentCodeExample];
+    let charIndex = 0;
+    let timer;
+    
+    const type = () => {
+      if (charIndex < example.length) {
+        setTypedText(example.substring(0, charIndex + 1));
+        charIndex++;
+        timer = setTimeout(type, Math.random() * 70 + 30);
+      } else {
+        // Move to next code example after a pause
+        setTimeout(() => {
+          setTypedText('');
+          setCurrentCodeExample((prev) => (prev + 1) % codeExamples.length);
+        }, 3000);
+      }
+    };
+    
+    timer = setTimeout(type, 1000);
+    return () => clearTimeout(timer);
+  }, [currentCodeExample]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black text-white overflow-hidden">
@@ -72,52 +131,19 @@ const HomePage = () => {
 
       {/* Hero Section */}
       <div className="relative h-screen flex items-center">
+        {/* Particle Background */}
+        <ParticleBackground />
+        
         {/* Background Elements */}
         <div className="absolute inset-0 overflow-hidden">
-          <div className="absolute top-20 left-10 w-64 h-64 bg-blue-500/20 rounded-full filter blur-3xl"></div>
-          <div className="absolute bottom-20 right-10 w-80 h-80 bg-purple-500/20 rounded-full filter blur-3xl"></div>
-          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-indigo-500/10 rounded-full filter blur-3xl"></div>
+          <div className="absolute top-20 left-10 w-64 h-64 bg-blue-500/20 rounded-full filter blur-3xl animate-pulse"></div>
+          <div className="absolute bottom-20 right-10 w-80 h-80 bg-purple-500/20 rounded-full filter blur-3xl animate-pulse" style={{ animationDuration: '8s' }}></div>
+          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-indigo-500/10 rounded-full filter blur-3xl animate-pulse" style={{ animationDuration: '12s' }}></div>
           
-          {/* Code Snippets Background */}
+          {/* Code Snippets Background with Typing Effect */}
           <div className="absolute inset-0 opacity-10">
-          <pre className="text-xs md:text-sm text-left overflow-hidden h-full">
-              {`function quickSort(arr) {
-  if (arr.length <= 1) return arr;
-  const pivot = arr[0];
-  const left = [];
-  const right = [];
-  
-  for (let i = 1; i < arr.length; i++) {
-    if (arr[i] < pivot) left.push(arr[i]);
-    else right.push(arr[i]);
-  }
-  
-  return [...quickSort(left), pivot, ...quickSort(right)];
-}
-
-class TreeNode {
-  constructor(val) {
-    this.val = val;
-    this.left = null;
-    this.right = null;
-  }
-}
-
-function bfs(root) {
-  if (!root) return [];
-  const queue = [root];
-  const result = [];
-  
-  while (queue.length > 0) {
-    const node = queue.shift();
-    result.push(node.val);
-    
-    if (node.left) queue.push(node.left);
-    if (node.right) queue.push(node.right);
-  }
-  
-  return result;
-}`}
+            <pre className="text-xs md:text-sm text-left overflow-hidden h-full code-cursor">
+              {typedText}
             </pre>
           </div>
         </div>
@@ -126,43 +152,63 @@ function bfs(root) {
         <div className="container mx-auto px-4 z-10">
           <div className="max-w-3xl mx-auto text-center">
             <h1 className="text-4xl md:text-6xl font-bold mb-6 leading-tight">
-              Master <span className="text-blue-500">Coding Challenges</span>, Elevate Your Skills
+              Master <span className="text-blue-500 shine">Coding Challenges</span>, <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-500 to-purple-600">Elevate Your Skills</span>
             </h1>
-            <p className="text-xl md:text-2xl text-gray-300 mb-10">
+            <p className="text-xl md:text-2xl text-gray-300 mb-10 opacity-0 animate-fadeIn" style={{ animationDelay: '0.5s', animationDuration: '1s', animationFillMode: 'forwards' }}>
               Join our community of developers to practice, compete, and grow your programming expertise
             </p>
-            <div className="flex flex-col md:flex-row justify-center gap-4">
+            <div className="flex flex-col md:flex-row justify-center gap-4 mt-12">
               {user ? (
                 <>
                   <Link
                     to="/dashboard"
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-lg text-lg font-bold transition-all transform hover:scale-105 shadow-lg"
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-lg text-lg font-bold transition-all transform hover:scale-105 shadow-lg pulse shine flex items-center justify-center gap-2 group"
                   >
-                    Go to Dashboard
+                    <span>Go to Dashboard</span>
+                    <FaArrowRight className="transform group-hover:translate-x-2 transition-transform duration-300" />
                   </Link>
                   <Link
                     to="/problems"
-                    className="bg-transparent hover:bg-white/10 border-2 border-white px-8 py-4 rounded-lg text-lg font-bold transition-all transform hover:scale-105 shadow-lg"
+                    className="bg-transparent hover:bg-white/10 border-2 border-white px-8 py-4 rounded-lg text-lg font-bold transition-all transform hover:scale-105 shadow-lg flex items-center justify-center gap-2 group backdrop-blur-sm"
                   >
-                    Explore Problems
+                    <span>Explore Problems</span>
+                    <FaRocket className="transform group-hover:translate-x-2 transition-transform duration-300" />
                   </Link>
                 </>
               ) : (
                 <>
                   <Link
                     to="/register"
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-lg text-lg font-bold transition-all transform hover:scale-105 shadow-lg"
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-lg text-lg font-bold transition-all transform hover:scale-105 shadow-lg pulse shine flex items-center justify-center gap-2 group"
                   >
-                    Start Coding Now
+                    <span>Start Coding Now</span>
+                    <FaKeyboard className="transform group-hover:translate-y-[-2px] transition-transform duration-300" />
                   </Link>
                   <Link
                     to="/login"
-                    className="bg-transparent hover:bg-white/10 border-2 border-white px-8 py-4 rounded-lg text-lg font-bold transition-all transform hover:scale-105 shadow-lg"
+                    className="bg-transparent hover:bg-white/10 border-2 border-white px-8 py-4 rounded-lg text-lg font-bold transition-all transform hover:scale-105 shadow-lg flex items-center justify-center gap-2 group backdrop-blur-sm"
                   >
-                    Sign In
+                    <span>Sign In</span>
+                    <FaSignInAlt className="transform group-hover:translate-x-2 transition-transform duration-300" />
                   </Link>
                 </>
               )}
+            </div>
+            
+            {/* Floating programming language tags */}
+            <div className="mt-16 flex justify-center gap-4 flex-wrap">
+              <span className="bg-gray-800/70 backdrop-blur-sm px-4 py-2 rounded-full text-sm border border-gray-700 flex items-center gap-2 floating-tag tag-delay-1">
+                <SiJavascript className="text-yellow-400" /> JavaScript
+              </span>
+              <span className="bg-gray-800/70 backdrop-blur-sm px-4 py-2 rounded-full text-sm border border-gray-700 flex items-center gap-2 floating-tag tag-delay-2">
+                <SiPython className="text-blue-400" /> Python
+              </span>
+              <span className="bg-gray-800/70 backdrop-blur-sm px-4 py-2 rounded-full text-sm border border-gray-700 flex items-center gap-2 floating-tag tag-delay-3">
+                <SiCplusplus className="text-blue-500" /> C++
+              </span>
+              <span className="bg-gray-800/70 backdrop-blur-sm px-4 py-2 rounded-full text-sm border border-gray-700 flex items-center gap-2 floating-tag tag-delay-4">
+                <SiTypescript className="text-blue-600" /> TypeScript
+              </span>
             </div>
           </div>
         </div>

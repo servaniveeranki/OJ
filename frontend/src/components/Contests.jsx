@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import Header from './Header';
+import { FaTrophy, FaCalendarAlt, FaClock, FaUsers } from 'react-icons/fa';
 
 const Contests = () => {
   // Sample contests data - in a real app, this would come from an API
@@ -72,18 +73,23 @@ const Contests = () => {
     : contests.filter(contest => contest.status === statusFilter);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black text-white">
       <Header />
       
       <div className="container mx-auto px-4 py-8">
+        {/* Background Elements */}
+        <div className="absolute inset-0 overflow-hidden -z-10">
+          <div className="absolute top-20 left-10 w-64 h-64 bg-blue-500/20 rounded-full filter blur-3xl"></div>
+          <div className="absolute bottom-20 right-10 w-80 h-80 bg-purple-500/20 rounded-full filter blur-3xl"></div>
+        </div>
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold text-gray-800">Contests</h1>
+          <h1 className="text-3xl font-bold text-white flex items-center"><FaTrophy className="text-blue-500 mr-2" /> Contests</h1>
           
           <div>
             <select 
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="bg-gray-900/50 border border-gray-600 text-white rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             >
               <option value="all">All Contests</option>
               <option value="upcoming">Upcoming</option>
@@ -93,43 +99,37 @@ const Contests = () => {
         </div>
         
         {/* Contests Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 relative z-10">
           {filteredContests.map((contest) => (
             <div 
               key={contest.id} 
-              className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow"
+              className="bg-gray-800/50 backdrop-blur-sm border border-gray-700 rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-all transform hover:scale-[1.02]"
             >
               <div className="p-6">
                 <div className="flex justify-between items-start mb-4">
-                  <h2 className="text-xl font-semibold text-gray-800">{contest.title}</h2>
+                  <h2 className="text-xl font-semibold text-white">{contest.title}</h2>
                   <span className={`px-2 py-1 text-xs font-semibold rounded-full 
-                    ${contest.difficulty === 'Easy' ? 'bg-green-100 text-green-800' : 
-                      contest.difficulty === 'Medium' ? 'bg-yellow-100 text-yellow-800' : 
-                      'bg-red-100 text-red-800'}`}>
+                    ${contest.difficulty === 'Easy' ? 'bg-green-900/60 text-green-300 border border-green-600' : 
+                      contest.difficulty === 'Medium' ? 'bg-yellow-900/60 text-yellow-300 border border-yellow-600' : 
+                      'bg-red-900/60 text-red-300 border border-red-600'}`}>
                     {contest.difficulty}
                   </span>
                 </div>
                 
                 <div className="space-y-2 mb-4">
-                  <div className="flex items-center text-sm text-gray-600">
-                    <svg className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
+                  <div className="flex items-center text-sm text-gray-300">
+                    <FaCalendarAlt className="h-4 w-4 mr-2 text-blue-400" />
                     <span>{formatDate(contest.startTime)}</span>
                   </div>
                   
-                  <div className="flex items-center text-sm text-gray-600">
-                    <svg className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
+                  <div className="flex items-center text-sm text-gray-300">
+                    <FaClock className="h-4 w-4 mr-2 text-blue-400" />
                     <span>Duration: {contest.duration}</span>
                   </div>
                   
                   {contest.status === 'completed' && (
-                    <div className="flex items-center text-sm text-gray-600">
-                      <svg className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-                      </svg>
+                    <div className="flex items-center text-sm text-gray-300">
+                      <FaUsers className="h-4 w-4 mr-2 text-blue-400" />
                       <span>{contest.participants} participants</span>
                     </div>
                   )}
@@ -137,11 +137,11 @@ const Contests = () => {
                 
                 <div className="mt-4">
                   {contest.status === 'upcoming' ? (
-                    <button className="w-full bg-black text-white py-2 px-4 rounded-md hover:bg-indigo-700 transition-colors">
+                    <button className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg transition-colors transform hover:scale-105 border border-blue-500/50">
                       Register
                     </button>
                   ) : (
-                    <button className="w-full bg-gray-100 text-gray-800 py-2 px-4 rounded-md hover:bg-gray-200 transition-colors">
+                    <button className="w-full bg-gray-700/50 text-gray-200 py-2 px-4 rounded-lg hover:bg-gray-700 transition-colors border border-gray-600">
                       View Results
                     </button>
                   )}

@@ -553,7 +553,24 @@ const handleRunCustomInput = async () => {
     <div className="min-h-screen bg-gray-50">
       <Header />
       <SuccessDialog />
-      
+
+      {/* Loading Overlay for Compile/Run */}
+      {(running || runningCustom) && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black bg-opacity-40">
+          <div className="flex flex-col items-center justify-center bg-white rounded-lg shadow-lg px-8 py-6">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-indigo-500 mb-4"></div>
+            <span className="text-lg font-semibold text-indigo-700">Processing ...</span>
+          </div>
+        </div>
+      )}
+      {(submitting) && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black bg-opacity-40">
+          <div className="flex flex-col items-center justify-center bg-white rounded-lg shadow-lg px-8 py-6">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-indigo-500 mb-4"></div>
+            <span className="text-lg font-semibold text-black/90">Submitting...</span>
+          </div>
+        </div>
+      )}
       <div className="container mx-auto px-4 py-8">
         {user && renderUserStats()}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

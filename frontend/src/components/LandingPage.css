@@ -92,9 +92,134 @@
   background: rgba(59, 130, 246, 0.8);
 }
 
+/* Pulse animation for buttons */
+.pulse {
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(59, 130, 246, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
+  }
+}
+
+/* Shine effect */
+.shine {
+  position: relative;
+  overflow: hidden;
+}
+
+.shine::after {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(to right, rgba(255,255,255,0) 0%, rgba(255,255,255,0.3) 50%, rgba(255,255,255,0) 100%);
+  transform: rotate(30deg);
+  transition: all 0.6s;
+  opacity: 0;
+}
+
+.shine:hover::after {
+  opacity: 1;
+  transform: rotate(30deg) translateY(-20%);
+}
+
+/* Code typing cursor effect */
+.code-cursor {
+  position: relative;
+}
+
+.code-cursor::after {
+  content: '|';
+  opacity: 1;
+  animation: cursor-blink 1.1s infinite;
+  font-weight: 100;
+  color: rgba(59, 130, 246, 0.8);
+}
+
+@keyframes cursor-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+/* Floating tags animation */
+.floating-tag {
+  display: inline-block;
+  animation: float-tag 3s ease-in-out infinite;
+  transform-origin: center;
+}
+
+.tag-delay-1 { animation-delay: 0.2s; }
+.tag-delay-2 { animation-delay: 0.4s; }
+.tag-delay-3 { animation-delay: 0.6s; }
+.tag-delay-4 { animation-delay: 0.8s; }
+
+@keyframes float-tag {
+  0% { transform: translateY(0px); }
+  30% { transform: translateY(-4px); }
+  60% { transform: translateY(2px); }
+  100% { transform: translateY(0px); }
+}
+
+/* Counter animation */
+.counter-value {
+  display: inline-block;
+  position: relative;
+}
+
+.counter-animate {
+  animation: count-up 2s ease-out forwards;
+}
+
+@keyframes count-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 /* Feature card hover effect */
 .feature-card {
   transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.feature-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(to right, transparent, rgba(59, 130, 246, 0.8), transparent);
+  transition: all 0.8s;
+}
+
+.feature-card::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  right: -100%;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(to left, transparent, rgba(59, 130, 246, 0.8), transparent);
+  transition: all 0.8s;
+}
+
+.feature-card:hover::before {
+  left: 100%;
+}
+
+.feature-card:hover::after {
+  right: 100%;
 }
 
 .feature-card:hover {

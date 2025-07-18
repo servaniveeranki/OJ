@@ -3,25 +3,52 @@ const { normalizeOutput, deepCompare } = require('../utils/inputParser');
 
 function assembleFullCode(problem, userCode, language, testInput) {
   if (language === 'java') {
-    const className = 'Main'; // must match file name Main.java in executor
+    const className = 'Main';
     const functionCode = userCode.trim();
-
+  
     const signature = problem.functionSignature;
-    const paramListStr = signature.substring(signature.indexOf('(') + 1, signature.lastIndexOf(')'));
-    const params = paramListStr.split(',').map(param => param.trim().split(/\s+/).pop());
+    let returnType = signature.substring(0, signature.indexOf(problem.functionName)).trim();
+  
+    // Fix common type mismatches
+    if (returnType === 'bool') returnType = 'boolean';
+    if (returnType === 'string') returnType = 'String'; // lowercase fix
+  
+    // Inject 'static' into the method declaration
+    // Make all methods static
+    const staticFunctionCode = functionCode
+    // Only add `static` if it's not already there
+    .replace(
+      new RegExp(`\\b(public\\s+)(?!static)(${returnType})\\s+${problem.functionName}\\b`),
+      `public static $2 ${problem.functionName}`
+    )
+    // Add static to any other `public` methods missing `static`
+    .replace(/public\s+(?!static)(\w[\s\S]*?)\s+(\w+)\s*\(/g, 'public static $1 $2(');
+  
 
-    const inputs = (() => {
+  
+    const paramListStr = signature.substring(signature.indexOf('(') + 1, signature.lastIndexOf(')'));
+    const paramPairs = paramListStr.split(',').map(param => {
+      const parts = param.trim().split(/\s+/);
+      return {
+        type: parts.slice(0, -1).join(' '),
+        name: parts[parts.length - 1]
+      };
+    });
+  
+    const splitInputs = (() => {
       const result = [];
-      let curr = '', depth = 0;
+      let curr = '', depth = 0, inString = false;
       for (let i = 0; i < testInput.length; i++) {
         const c = testInput[i];
-        if (c === '[' || c === '{' || c === '(') depth++;
-        if (c === ']' || c === '}' || c === ')') depth--;
-        if (c === ',' && depth === 0) {
-          result.push(curr.trim()); curr = '';
-        } else {
-          curr += c;
+        if (c === '"' && testInput[i - 1] !== '\\') inString = !inString;
+        if (!inString) {
+          if (c === '[' || c === '{' || c === '(') depth++;
+          if (c === ']' || c === '}' || c === ')') depth--;
+          if (c === ',' && depth === 0) {
+            result.push(curr.trim()); curr = ''; continue;
+          }
         }
+        curr += c;
       }
       if (curr.trim().length > 0) result.push(curr.trim());
       return result.map(x => {
@@ -29,34 +56,98 @@ function assembleFullCode(problem, userCode, language, testInput) {
         return eqIdx !== -1 ? x.slice(eqIdx + 1).trim() : x.trim();
       });
     })();
-
-    let inputParsing = '';
-    let argsList = '';
-    params.forEach((name, idx) => {
-      const val = inputs[idx];
-      if (val.startsWith("\"") || isNaN(val)) {
-        inputParsing += `String ${name} = ${val};\n        `;
-      } else if (val.includes(".")) {
-        inputParsing += `double ${name} = ${val};\n        `;
-      } else {
-        inputParsing += `int ${name} = ${val};\n        `;
+  
+    let inputParsingCode = '';
+    paramPairs.forEach((param, index) => {
+      const arg = splitInputs[index];
+      const { type, name } = param;
+  
+      if (type.includes('[]') || type.includes('List<')) {
+        if (type.includes('int')) {
+          inputParsingCode += `
+          String ${name}Str = ${JSON.stringify(arg)};
+          ${name}Str = ${name}Str.replaceAll("[\\[\\]]", "").trim();
+          String[] ${name}Parts = ${name}Str.split(",");
+          int[] ${name} = new int[${name}Parts.length];
+          for (int i = 0; i < ${name}Parts.length; i++) {
+              ${name}[i] = Integer.parseInt(${name}Parts[i].trim());
+          }`;
+        } else if (type.includes('String')) {
+          inputParsingCode += `
+          String ${name}Str = ${JSON.stringify(arg)};
+          ${name}Str = ${name}Str.replaceAll("[\\[\\]]", "").trim();
+          String[] ${name} = ${name}Str.split(",");
+          for (int i = 0; i < ${name}.length; i++) {
+              ${name}[i] = ${name}[i].trim().replaceAll("\\\"", "").replaceAll("^\"|\"$", "");
+          }`;
+        }
+      } else if (type === 'int' || type === 'Integer') {
+        inputParsingCode += `\n        int ${name} = ${arg};`;
+      } else if (type === 'double' || type === 'Double') {
+        inputParsingCode += `\n        double ${name} = ${arg};`;
+      } else if (type === 'boolean' || type === 'Boolean') {
+        inputParsingCode += `\n        boolean ${name} = ${arg.toLowerCase()};`;
+      } else if (type === 'String') {
+        let cleaned = arg.trim();
+        if (cleaned.startsWith('"') && cleaned.endsWith('"')) {
+          cleaned = cleaned.slice(1, -1);
+        }
+        inputParsingCode += `\n        String ${name} = "${cleaned.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}";`;
       }
-      argsList += `${name}, `;
+       else if (type === 'char') {
+        let cleaned = arg.trim();
+        if (cleaned.startsWith('"') && cleaned.endsWith('"')) {
+          cleaned = cleaned.slice(1, -1);
+        }
+        inputParsingCode += `\n        char ${name} = '${cleaned.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}';`;
+      }
     });
-    argsList = argsList.replace(/, $/, '');
-
-    const testCode = `
-public class ${className} {
-    ${functionCode}
-
-    public static void main(String[] args) {
-        ${inputParsing}
-        System.out.println(${problem.functionName}(${argsList}));
+  
+    const mainCallArgs = paramPairs.map(p => p.name).join(', ');
+    let printCode = '';
+  
+    if (returnType.includes('int[]')) {
+      printCode = `
+          System.out.print("[");
+          for (int i = 0; i < result.length; i++) {
+              System.out.print(result[i]);
+              if (i < result.length - 1) System.out.print(",");
+          }
+          System.out.print("]");`;
+    } else if (returnType.includes('String[]')) {
+      printCode = `
+          System.out.print("[");
+          for (int i = 0; i < result.length; i++) {
+              System.out.print("\\"" + result[i] + "\\"");
+              if (i < result.length - 1) System.out.print(",");
+          }
+          System.out.print("]");`;
+    } else if (returnType === 'boolean') {
+      printCode = `System.out.print(result ? "true" : "false");`;
+    } else if (returnType === 'String') {
+      printCode = `System.out.print("\\"" + result + "\\"");`;
+    } else {
+      printCode = `System.out.print(result);`;
     }
-}`;
+  
+    const testCode = `
+    public class ${className} {
+        ${staticFunctionCode}
+    
+        public static void main(String[] args) {${inputParsingCode}
+            ${returnType} result = ${problem.functionName}(${mainCallArgs});
+            ${printCode}
+        }
+    }`;
+  
+    console.log("==== JAVA FINAL FULL CODE ====");
+    console.log(testCode);
+    console.log("=============================");
+  
     return testCode;
-
-  } else if (language === 'python') {
+  }
+  
+  else if (language === 'python') {
     const header = `def ${problem.functionName}${problem.functionSignature}:`;
     const indentedUserCode = userCode
       .split('\n')
@@ -172,6 +263,19 @@ while (ss_${param.name} >> temp_${param.name}) {
 cout << "[";
 for (size_t i = 0; i < res.size(); ++i) {
     cout << res[i];
+    if (i != res.size() - 1) cout << ",";
+}
+cout << "]";`;
+    } else if (returnType === 'vector<vector<int>>') {
+      printCode = `
+cout << "[";
+for (size_t i = 0; i < res.size(); ++i) {
+    cout << "[";
+    for (size_t j = 0; j < res[i].size(); ++j) {
+        cout << res[i][j];
+        if (j != res[i].size() - 1) cout << ",";
+    }
+    cout << "]";
     if (i != res.size() - 1) cout << ",";
 }
 cout << "]";`;
