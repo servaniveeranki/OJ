@@ -43,4 +43,24 @@ router.get('/test-auth', (req, res) => {
   });
 });
 
+// Simple test registration to isolate 500 error
+router.post('/test-register', async (req, res) => {
+  try {
+    console.log('Test registration attempt:', req.body);
+    
+    // Test 1: Basic response
+    res.status(200).json({
+      message: 'Test registration endpoint working',
+      receivedData: req.body,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Test registration error:', error);
+    res.status(500).json({
+      message: 'Test registration failed',
+      error: error.message
+    });
+  }
+});
+
 module.exports = router;

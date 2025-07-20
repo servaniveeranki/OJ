@@ -25,9 +25,11 @@ const verifyToken = (req, res, next) => {
 router.post("/register", async (req, res) => {
   try {
     const { firstname, lastname, email, password } = req.body;
+    console.log('Registration attempt:', { firstname, lastname, email, passwordProvided: !!password });
     
     // Check if all required fields are provided
     if (!(firstname && lastname && email && password)) {
+      console.log('Missing required fields');
       return res.status(400).json({ message: "All input fields are required" });
     }
     
@@ -60,8 +62,15 @@ router.post("/register", async (req, res) => {
     
     res.status(201).json({ user, token, message: "Registration successful" });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    console.error('Registration error details:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name
+    });
+    res.status(500).json({ 
+      message: "Server error",
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+    });
   }
 });
 
@@ -69,9 +78,11 @@ router.post("/register", async (req, res) => {
 router.post("/login", async (req, res) => {
   try {
     const { email, password } = req.body;
+    console.log('Login attempt:', { email, passwordProvided: !!password });
 
     // Validate input
     if (!(email && password)) {
+      console.log('Missing email or password');
       return res.status(400).json({ message: "All input fields are required" });
     }
 

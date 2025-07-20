@@ -22,7 +22,8 @@ RUN apk add --no-cache \
     py3-pip \
     openjdk11 \
     g++ \
-    gcc
+    gcc \
+    curl
 
 # Expose port
 EXPOSE 5000
