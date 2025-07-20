@@ -2,7 +2,6 @@
 
 A full-stack online judge platform for coding competitions and practice, built with React, Node.js, Express, and MongoDB.
 
-## Features
 
 - 🚀 **Multi-language Support**: C++, Java, Python
 - 🧠 **AI-Powered Error Analysis**: Smart debugging assistance with fallback support
