@@ -43,11 +43,11 @@ const ProblemSchema = new mongoose.Schema({
     },
     java: {
       type: String,
-      default: '// Write your Java code here\npublic class Solution {\n    public static void main(String[] args) {\n        // Your code here\n    }\n}'
+      default: 'import java.util.*;\nimport java.io.*;\n\npublic class Main {\n    // Write your solution method here\n    \n    public static void main(String[] args) {\n        // Your code here\n    }\n}'
     },
     python: {
       type: String,
-      default: '# Write your Python code here\n\ndef main():\n    # Your code here\n    pass\n\nif __name__ == "__main__":\n    main()'
+      default: 'from typing import List\n\nclass Solution:\n    # Write your solution method here\n    \n    def main(self):\n        # Your code here\n        pass\n\nif __name__ == "__main__":\n    solution = Solution()\n    solution.main()'
     }
   },
   functionName: {

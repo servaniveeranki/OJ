@@ -161,17 +161,28 @@ router.get('/submissions/:userId', async (req, res) => {
 router.get('/stats/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
-    const user = await User.findById(userId).select('problemsSolved totalSubmissions submissionStats streak');
+    console.log(`Fetching statistics for user: ${userId}`);
+    
+    const user = await User.findById(userId).select('problemsSolved totalSubmissions submissionStats streak solvedProblems');
     
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
+    
+    console.log('User data found:', {
+      problemsSolved: user.problemsSolved,
+      totalSubmissions: user.totalSubmissions,
+      submissionStats: user.submissionStats,
+      streak: user.streak
+    });
     
     // Get submission distribution by language
     const languageStats = await Submission.aggregate([
       { $match: { user: userId } },
       { $group: { _id: '$language', count: { $sum: 1 } } }
     ]);
+    
+    console.log('Language stats:', languageStats);
     
     // Get daily submission activity for the last 6 months
     const sixMonthsAgo = new Date();
@@ -198,6 +209,8 @@ router.get('/stats/:userId', async (req, res) => {
       { $sort: { _id: 1 } }
     ]);
     
+    console.log('Daily activity:', dailyActivity.length, 'days with activity');
+    
     // Get difficulty distribution
     const difficultyStats = await Submission.aggregate([
       {
@@ -223,6 +236,8 @@ router.get('/stats/:userId', async (req, res) => {
       }
     ]);
     
+    console.log('Difficulty stats:', difficultyStats);
+    
     // Format the daily activity data for the calendar
     const activityData = {};
     dailyActivity.forEach(day => {
@@ -232,20 +247,25 @@ router.get('/stats/:userId', async (req, res) => {
       };
     });
     
-    res.json({
+    // Ensure all required fields have default values
+    const responseData = {
       problemsSolved: user.problemsSolved || 0,
       totalSubmissions: user.totalSubmissions || 0,
-      submissionStats: user.submissionStats || {
-        accepted: 0,
-        wrongAnswer: 0,
-        timeLimitExceeded: 0,
-        runtimeError: 0,
-        compilationError: 0
+      submissionStats: {
+        accepted: (user.submissionStats?.accepted || 0),
+        wrongAnswer: (user.submissionStats?.wrongAnswer || 0),
+        timeLimitExceeded: (user.submissionStats?.timeLimitExceeded || 0),
+        runtimeError: (user.submissionStats?.runtimeError || 0),
+        compilationError: (user.submissionStats?.compilationError || 0)
       },
-      streak: user.streak || { current: 0, longest: 0 },
+      streak: {
+        current: (user.streak?.current || 0),
+        longest: (user.streak?.longest || 0),
+        lastSubmissionDate: user.streak?.lastSubmissionDate || null
+      },
       languageDistribution: languageStats.map(item => ({
-        language: item._id,
-        count: item.count
+        language: item._id || 'unknown',
+        count: item.count || 0
       })),
       dailyActivity: activityData,
       difficultyDistribution: {
@@ -253,10 +273,14 @@ router.get('/stats/:userId', async (req, res) => {
         Medium: difficultyStats.find(d => d._id === 'Medium')?.count || 0,
         Hard: difficultyStats.find(d => d._id === 'Hard')?.count || 0
       }
-    });
+    };
+    
+    console.log('Sending response data:', responseData);
+    res.json(responseData);
+    
   } catch (error) {
     console.error('Error fetching user statistics:', error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
 

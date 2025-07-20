@@ -40,24 +40,27 @@ const Dashboard = () => {
     }
   }, [user, loading, navigate]);
   
-  // Fetch user statistics and submissions
-  useEffect(() => {
-    const fetchUserData = async () => {
-      if (!user || !user._id) return;
+  // Function to refresh dashboard data
+  const refreshDashboardData = async () => {
+    if (!user || !user._id) return;
+    
+    setStatsLoading(true);
+    try {
+      console.log('Refreshing dashboard data for user:', user._id);
       
-      setStatsLoading(true);
-      try {
-        // Fetch user statistics
-        const statsResponse = await axios.get(`/api/users/stats/${user._id}`);
-        const statsData = statsResponse.data;
-        
-        // Fetch recent submissions
-        const submissionsResponse = await axios.get(`/api/users/submissions/${user._id}`);
-        setRecentSubmissions(submissionsResponse.data);
-        
-        // Get total problems count
-        const problemsResponse = await axios.get('/api/problems');
-        const totalProblems = problemsResponse.data.length;
+      // Fetch user statistics
+      const statsResponse = await axios.get(`/api/users/stats/${user._id}`);
+      const statsData = statsResponse.data;
+      
+      console.log('Received stats data:', statsData);
+      
+      // Fetch recent submissions
+      const submissionsResponse = await axios.get(`/api/users/submissions/${user._id}`);
+      setRecentSubmissions(submissionsResponse.data);
+      
+      // Get total problems count
+      const problemsResponse = await axios.get('/api/problems');
+      const totalProblems = problemsResponse.data.length;
         
         // Map language codes to icons
         const languageIcons = {
@@ -109,6 +112,7 @@ const Dashboard = () => {
         // Format activity data for the calendar
         if (statsData.dailyActivity) {
           setActivityData(statsData.dailyActivity);
+          console.log('Activity data set:', Object.keys(statsData.dailyActivity).length, 'days');
         }
         
       } catch (error) {
@@ -118,9 +122,17 @@ const Dashboard = () => {
         setStatsLoading(false);
       }
     };
-    
-    fetchUserData();
+  
+  // Fetch user statistics and submissions
+  useEffect(() => {
+    refreshDashboardData();
   }, [user]);
+  
+  // Add a function to manually refresh data (can be called after submissions)
+  const handleRefresh = () => {
+    refreshDashboardData();
+    toast.success('Dashboard refreshed!');
+  };
   
   if (loading) {
     return (
@@ -227,9 +239,24 @@ const Dashboard = () => {
             </div>
           </div>
           
+          {/* Dashboard Header with Refresh Button */}
+          <div className="mb-8">
+            <div className="flex items-center justify-between">
+              <h2 className="text-2xl md:text-3xl font-bold">Your <span className="text-blue-500">Progress</span></h2>
+              <button
+                onClick={handleRefresh}
+                disabled={statsLoading}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                <svg className={`w-4 h-4 ${statsLoading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                {statsLoading ? 'Refreshing...' : 'Refresh'}
+              </button>
+            </div>
+          </div>
           {/* Stats Overview */}
           <div className="mb-12">
-            <h2 className="text-2xl md:text-3xl font-bold mb-6">Your <span className="text-blue-500">Progress</span></h2>
             
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
               {/* Total Problems Solved */}

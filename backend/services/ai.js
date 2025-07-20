@@ -243,10 +243,22 @@ async function analyzeCode(code, language, problemId, passed) {
 }
 
 async function analyzeCodeError(code, language, errorMessage, testCase = '') {
-  try {
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro-latest" });
+  // Check if API keys are available
+  const hasGeminiKey = process.env.GOOGLE_GEMINI_API && process.env.GOOGLE_GEMINI_API.trim() !== '';
+  const hasOpenAIKey = process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY.trim() !== '';
+  
+  // If no API keys are available, return a basic analysis
+  if (!hasGeminiKey && !hasOpenAIKey) {
+    console.warn('No AI API keys available, providing basic error analysis');
+    return getBasicErrorAnalysis(code, language, errorMessage, testCase);
+  }
 
-    const prompt = `
+  // Try Gemini first if available
+  if (hasGeminiKey) {
+    try {
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro-latest" });
+
+      const prompt = `
 You are an expert software engineer and debugging specialist.
 Analyze the following ${language} code that produced an error:
 
@@ -280,15 +292,109 @@ Format your response as JSON with the following structure:
 }
 `;
 
-    const result = await model.generateContent(prompt);
-    const text = result.response.text();
-    const jsonStr = text.replace(/```json\s*|```/g, '');
+      const result = await model.generateContent(prompt);
+      const text = result.response.text();
+      const jsonStr = text.replace(/```json\s*|```/g, '');
 
-    return JSON.parse(jsonStr);
-  } catch (error) {
-    console.error("Gemini error analysis failed, using OpenAI as fallback...", error);
-    return await getOpenAIErrorAnalysis(code, language, errorMessage, testCase);
+      return JSON.parse(jsonStr);
+    } catch (error) {
+      console.error("Gemini error analysis failed:", error.message);
+      // Fall through to OpenAI or basic analysis
+    }
   }
+
+  // Try OpenAI as fallback if available
+  if (hasOpenAIKey) {
+    try {
+      return await getOpenAIErrorAnalysis(code, language, errorMessage, testCase);
+    } catch (error) {
+      console.error("OpenAI error analysis failed:", error.message);
+      // Fall through to basic analysis
+    }
+  }
+
+  // If all AI services fail, provide basic analysis
+  console.warn('All AI services failed, providing basic error analysis');
+  return getBasicErrorAnalysis(code, language, errorMessage, testCase);
+}
+
+// Basic error analysis fallback when AI services are unavailable
+function getBasicErrorAnalysis(code, language, errorMessage, testCase = '') {
+  // Common error patterns and their explanations
+  const errorPatterns = {
+    'compilation error': {
+      cause: 'Code has syntax errors or missing dependencies',
+      suggestions: ['Check for missing semicolons, brackets, or parentheses', 'Verify all imports and dependencies are correct']
+    },
+    'runtime error': {
+      cause: 'Error occurred during code execution',
+      suggestions: ['Check for null pointer exceptions', 'Verify array bounds', 'Handle edge cases']
+    },
+    'timeout': {
+      cause: 'Code execution took too long',
+      suggestions: ['Optimize algorithm complexity', 'Check for infinite loops', 'Use more efficient data structures']
+    },
+    'memory': {
+      cause: 'Code used too much memory',
+      suggestions: ['Optimize memory usage', 'Use more efficient data structures', 'Avoid storing unnecessary data']
+    },
+    'index': {
+      cause: 'Array or string index out of bounds',
+      suggestions: ['Check array/string bounds before accessing', 'Verify loop conditions', 'Handle empty arrays/strings']
+    },
+    'null': {
+      cause: 'Null pointer or undefined variable access',
+      suggestions: ['Initialize variables before use', 'Check for null/undefined values', 'Use proper error handling']
+    },
+    'type': {
+      cause: 'Type mismatch or conversion error',
+      suggestions: ['Check variable types', 'Use proper type casting', 'Validate input types']
+    }
+  };
+
+  // Analyze error message for common patterns
+  let matchedPattern = null;
+  const lowerError = errorMessage.toLowerCase();
+  
+  for (const [pattern, info] of Object.entries(errorPatterns)) {
+    if (lowerError.includes(pattern)) {
+      matchedPattern = info;
+      break;
+    }
+  }
+
+  // Default analysis if no pattern matches
+  if (!matchedPattern) {
+    matchedPattern = {
+      cause: 'Unknown error occurred',
+      suggestions: ['Review the error message carefully', 'Check code logic and syntax', 'Test with different inputs']
+    };
+  }
+
+  // Generate basic code snippet suggestion
+  let codeSnippet = code;
+  if (language === 'python' && lowerError.includes('indentation')) {
+    codeSnippet = '# Fix indentation errors\n' + code.split('\n').map(line => line.trim() ? '    ' + line.trim() : line).join('\n');
+  } else if (language === 'java' && lowerError.includes('semicolon')) {
+    codeSnippet = '// Add missing semicolons\n' + code;
+  } else if (language === 'cpp' && lowerError.includes('include')) {
+    codeSnippet = '#include <iostream>\n#include <vector>\n#include <string>\n\n' + code;
+  }
+
+  return {
+    errorLocation: 'Unable to determine exact location without AI analysis',
+    errorCause: matchedPattern.cause,
+    fixSuggestion: matchedPattern.suggestions.join('. '),
+    codeSnippet: codeSnippet,
+    preventionTips: [
+      'Test your code with various inputs',
+      'Use proper error handling',
+      'Follow language-specific best practices',
+      'Use debugging tools and print statements'
+    ],
+    isCommonMistake: true,
+    note: 'This is a basic analysis. For detailed AI-powered analysis, please check your API quotas.'
+  };
 }
 
 async function getOpenAIErrorAnalysis(code, language, errorMessage, testCase = '') {
@@ -338,15 +444,14 @@ Format your response as JSON with the following structure:
 
     return JSON.parse(jsonStr);
   } catch (error) {
-    console.error("OpenAI error analysis failed:", error);
-    return {
-      errorLocation: "Could not determine error location",
-      errorCause: "AI analysis failed. Please check the error message manually: " + errorMessage,
-      fixSuggestion: "Try debugging the code yourself or check documentation for the specific error.",
-      codeSnippet: code,
-      preventionTips: ["Use proper error handling", "Test your code with various inputs"],
-      isCommonMistake: false
-    };
+    console.error("OpenAI error analysis failed:", error.message);
+    // If it's a quota error, provide a more helpful message
+    if (error.code === 'insufficient_quota' || error.status === 429) {
+      console.warn('OpenAI quota exceeded, falling back to basic analysis');
+      return getBasicErrorAnalysis(code, language, errorMessage, testCase);
+    }
+    // For other errors, still provide basic analysis
+    return getBasicErrorAnalysis(code, language, errorMessage, testCase);
   }
 }
 

@@ -13,12 +13,32 @@ async function trackSubmission(userId, problemId, language, status, executionTim
       return;
     }
     
+    // Initialize submissionStats if it doesn't exist
+    if (!user.submissionStats) {
+      user.submissionStats = {
+        accepted: 0,
+        wrongAnswer: 0,
+        timeLimitExceeded: 0,
+        runtimeError: 0,
+        compilationError: 0
+      };
+    }
+    
+    // Initialize streak if it doesn't exist
+    if (!user.streak) {
+      user.streak = {
+        current: 0,
+        longest: 0,
+        lastSubmissionDate: null
+      };
+    }
+    
     // Update total submissions count
-    user.totalSubmissions += 1;
+    user.totalSubmissions = (user.totalSubmissions || 0) + 1;
     
     // Update status-specific counts
     if (status === 'Accepted') {
-      user.submissionStats.accepted += 1;
+      user.submissionStats.accepted = (user.submissionStats.accepted || 0) + 1;
       
       // Check if this problem is already solved by the user
       const alreadySolved = user.solvedProblems.includes(problemId);
@@ -26,25 +46,55 @@ async function trackSubmission(userId, problemId, language, status, executionTim
       if (!alreadySolved) {
         // Add to solved problems list
         user.solvedProblems.push(problemId);
-        user.problemsSolved += 1;
+        user.problemsSolved = (user.problemsSolved || 0) + 1;
       }
+      
+      // Update streak for accepted submissions
+      const today = new Date();
+      const lastSubmission = user.streak.lastSubmissionDate;
+      
+      if (!lastSubmission) {
+        // First submission
+        user.streak.current = 1;
+        user.streak.longest = 1;
+      } else {
+        const daysDiff = Math.floor((today - lastSubmission) / (1000 * 60 * 60 * 24));
+        
+        if (daysDiff === 1) {
+          // Consecutive day
+          user.streak.current += 1;
+          user.streak.longest = Math.max(user.streak.longest, user.streak.current);
+        } else if (daysDiff === 0) {
+          // Same day, maintain streak
+          // Do nothing
+        } else {
+          // Streak broken
+          user.streak.current = 1;
+        }
+      }
+      
+      user.streak.lastSubmissionDate = today;
     } else if (status === 'Wrong Answer') {
-      user.submissionStats.wrongAnswer += 1;
+      user.submissionStats.wrongAnswer = (user.submissionStats.wrongAnswer || 0) + 1;
     } else if (status === 'Time Limit Exceeded') {
-      user.submissionStats.timeLimitExceeded += 1;
+      user.submissionStats.timeLimitExceeded = (user.submissionStats.timeLimitExceeded || 0) + 1;
     } else if (status === 'Runtime Error') {
-      user.submissionStats.runtimeError += 1;
+      user.submissionStats.runtimeError = (user.submissionStats.runtimeError || 0) + 1;
     } else if (status === 'Compilation Error') {
-      user.submissionStats.compilationError += 1;
+      user.submissionStats.compilationError = (user.submissionStats.compilationError || 0) + 1;
     }
     
     // Save the updated user document
     await user.save();
     
     console.log(`Updated statistics for user ${userId}: ${status} submission for problem ${problemId}`);
+    console.log(`Current stats:`, {
+      totalSubmissions: user.totalSubmissions,
+      problemsSolved: user.problemsSolved,
+      submissionStats: user.submissionStats,
+      streak: user.streak
+    });
     
-    // Also track submission in a separate collection if needed
-    // This could be implemented later for more detailed submission history
   } catch (err) {
     console.error('Error tracking submission:', err);
     throw err;
