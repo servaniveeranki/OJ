@@ -36,6 +36,10 @@ app.get("/", (req, res) => {
 // Use authentication routes
 app.use("/auth", authRoutes);
 
+// Debug routes for troubleshooting
+const debugRoutes = require('./routes/debug');
+app.use("/debug", debugRoutes);
+
 // Use problem routes
 const problemRoutes = require('./routes/problems');
 
