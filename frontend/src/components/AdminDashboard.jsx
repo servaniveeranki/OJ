@@ -79,7 +79,7 @@ const AdminDashboard = () => {
   const fetchProblems = async () => {
     try {
       setLoading(true);
-      const response = await axios.get('/api/problems');
+      const response = await axios.get(`${import.meta.env.VITE_API_URL}/api/problems`);
       setProblems(response.data);
       setLoading(false);
     } catch (err) {
