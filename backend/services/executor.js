@@ -467,11 +467,14 @@ async function executeUserCode({ problem, testCases, code, language }) {
       const fullCode = assembleFullCode(problem, code, language, testCaseInput);
       const start = Date.now();
 
-      const execRes = await axios.post('http://localhost:5000/api/execute', {
-        language,
-        code: fullCode,
-        input: testCaseInput // for stdin languages
-      });
+      const BASE_EXEC_URL = process.env.EXECUTION_API_URL || 'http://localhost:5000';
+
+const execRes = await axios.post(`${BASE_EXEC_URL}/api/execute`, {
+  language,
+  code: fullCode,
+  input: testCaseInput // for stdin languages
+});
+
 
       const raw = execRes.data.stdout || '';
       const err = execRes.data.error || '';
