@@ -153,7 +153,7 @@ const AdminDashboard = () => {
 
   const handleDeleteProblem = async (problemId, title) => {
     try {
-      await axios.delete(`/api/problems/${problemId}`, {
+      await axios.delete(`${import.meta.env.VITE_API_URL}/api/problems/${problemId}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -177,7 +177,7 @@ const AdminDashboard = () => {
     
     try {
       if (formMode === 'create') {
-        const response = await axios.post('/api/problems', formData, {
+        const response = await axios.post(`${import.meta.env.VITE_API_URL}/api/problems`, formData, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -187,7 +187,7 @@ const AdminDashboard = () => {
         toast.success('Problem created successfully!');
         setActiveTab('problems');
       } else {
-        const response = await axios.put(`/api/problems/${currentProblem._id}`, formData, {
+        const response = await axios.put(`${import.meta.env.VITE_API_URL}/api/problems/${currentProblem._id}`, formData, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
