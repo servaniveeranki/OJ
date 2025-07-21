@@ -1,14 +1,13 @@
 import axios from 'axios';
 
-// Create an instance of axios that will work with the Vite proxy
 const instance = axios.create({
-  // No baseURL needed when using Vite proxy
+  baseURL: import.meta.env.VITE_API_URL || '', // Use proxy in dev, full URL in prod
   withCredentials: true
 });
 
 // Add request interceptor for debugging
 instance.interceptors.request.use(config => {
-  console.log(`API Request: ${config.method.toUpperCase()} ${config.url}`);
+  console.log(`API Request: ${config.method.toUpperCase()} ${config.baseURL}${config.url}`);
   return config;
 });
 
